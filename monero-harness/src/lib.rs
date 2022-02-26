@@ -188,7 +188,6 @@ fn random_prefix() -> String {
 
 #[derive(Clone, Debug)]
 pub struct Monerod {
-    rpc_port: u16,
     name: String,
     network: String,
     client: monerod::Client,
@@ -196,9 +195,7 @@ pub struct Monerod {
 
 #[derive(Clone, Debug)]
 pub struct MoneroWalletRpc {
-    rpc_port: u16,
     name: String,
-    network: String,
     client: wallet::Client,
 }
 
@@ -220,7 +217,6 @@ impl<'c> Monerod {
 
         Ok((
             Self {
-                rpc_port: monerod_rpc_port,
                 name,
                 network,
                 client: monerod::Client::localhost(monerod_rpc_port)?,
@@ -272,9 +268,7 @@ impl<'c> MoneroWalletRpc {
 
         Ok((
             Self {
-                rpc_port: wallet_rpc_port,
                 name: name.to_string(),
-                network,
                 client,
             },
             container,

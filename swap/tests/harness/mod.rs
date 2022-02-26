@@ -485,7 +485,7 @@ impl BobParams {
             .behaviour_mut()
             .add_address(self.alice_peer_id, self.alice_address.clone());
 
-        cli::EventLoop::new(swap_id, swarm, self.alice_peer_id, self.env_config)
+        cli::EventLoop::new(swap_id, swarm, self.alice_peer_id)
     }
 }
 
