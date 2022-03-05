@@ -49,7 +49,8 @@ Please have a look at the [contribution guidelines](./CONTRIBUTING.md).
 
 ## Rust Version Support
 
-Please note that only the latest stable Rust toolchain is supported. All stable toolchains since 1.58 _should_ work.
+Please note that only the latest stable Rust toolchain is supported.
+All stable toolchains since 1.58 _should_ work.
 
 ## Contact
 
