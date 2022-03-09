@@ -71,7 +71,7 @@ impl<'c> Monero {
         let miner = "miner";
         tracing::info!("Starting miner wallet: {}", miner);
         let (miner_wallet, miner_container) =
-            MoneroWalletRpc::new(cli, &miner, &monerod, prefix.clone()).await?;
+            MoneroWalletRpc::new(cli, miner, &monerod, prefix.clone()).await?;
 
         wallets.push(miner_wallet);
         containers.push(miner_container);
@@ -83,7 +83,7 @@ impl<'c> Monero {
             // trying for 5 minutes
             let (wallet, container) = tokio::time::timeout(Duration::from_secs(300), async {
                 loop {
-                    let result = MoneroWalletRpc::new(cli, &wallet, &monerod, prefix.clone()).await;
+                    let result = MoneroWalletRpc::new(cli, wallet, &monerod, prefix.clone()).await;
 
                     match result {
                         Ok(tuple) => { return tuple; }
@@ -248,7 +248,7 @@ impl<'c> MoneroWalletRpc {
         prefix: String,
     ) -> Result<(Self, Container<'c, Cli, image::MoneroWalletRpc>)> {
         let daemon_address = format!("{}:{}", monerod.name, RPC_PORT);
-        let image = image::MoneroWalletRpc::new(&name, daemon_address);
+        let image = image::MoneroWalletRpc::new(name, daemon_address);
 
         let network = monerod.network.clone();
         let run_args = RunArgs::default()
