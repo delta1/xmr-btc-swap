@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         json,
         cmd,
     } = match parse_args_and_apply_defaults(env::args_os())? {
-        ParseResult::Arguments(args) => args,
+        ParseResult::Arguments(args) => *args,
         ParseResult::PrintAndExitZero { message } => {
             println!("{}", message);
             std::process::exit(0);

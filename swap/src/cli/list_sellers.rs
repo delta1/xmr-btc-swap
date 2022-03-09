@@ -271,7 +271,7 @@ impl EventLoop {
                             QuoteStatus::Received(Status::Online(quote)) => {
                                 let address = self
                                     .reachable_asb_address
-                                    .get(&peer_id)
+                                    .get(peer_id)
                                     .expect("if we got a quote we must have stored an address");
 
                                 Ok(Seller {
@@ -282,7 +282,7 @@ impl EventLoop {
                             QuoteStatus::Received(Status::Unreachable) => {
                                 let address = self
                                     .unreachable_asb_address
-                                    .get(&peer_id)
+                                    .get(peer_id)
                                     .expect("if we got a quote we must have stored an address");
 
                                 Ok(Seller {
@@ -342,23 +342,26 @@ mod tests {
 
         list.sort();
 
-        assert_eq!(list, vec![
-            Seller {
-                multiaddr: "/ip4/127.0.0.1/tcp/5678".parse().unwrap(),
-                status: Status::Online(BidQuote {
-                    price: Default::default(),
-                    min_quantity: Default::default(),
-                    max_quantity: Default::default(),
-                })
-            },
-            Seller {
-                multiaddr: Multiaddr::empty(),
-                status: Status::Unreachable
-            },
-            Seller {
-                multiaddr: "/ip4/127.0.0.1/tcp/1234".parse().unwrap(),
-                status: Status::Unreachable
-            },
-        ])
+        assert_eq!(
+            list,
+            vec![
+                Seller {
+                    multiaddr: "/ip4/127.0.0.1/tcp/5678".parse().unwrap(),
+                    status: Status::Online(BidQuote {
+                        price: Default::default(),
+                        min_quantity: Default::default(),
+                        max_quantity: Default::default(),
+                    })
+                },
+                Seller {
+                    multiaddr: Multiaddr::empty(),
+                    status: Status::Unreachable
+                },
+                Seller {
+                    multiaddr: "/ip4/127.0.0.1/tcp/1234".parse().unwrap(),
+                    status: Status::Unreachable
+                },
+            ]
+        )
     }
 }
