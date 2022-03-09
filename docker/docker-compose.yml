@@ -1,0 +1,27 @@
+version: "3"
+services:
+  asb:
+    image: bizzz/asb:latest
+    command: ["asb", "--config", "/etc/asb/config.json", "start"]
+    volumes:
+      - ./data:/var/lib/asb/data
+    stdin_open: true
+    tty: true
+    environment:
+      DATA_DIR:
+      NETWORK_LISTEN:
+      NETWORK_RENDEZVOUS_POINT:
+      NETWORK_EXTERNAL_ADDRESSES:
+      BITCOIN_ELECTRUM_RPC_URL:
+      BITCOIN_TARGET_BLOCK:
+      BITCOIN_FINALITY_CONFIRMATIONS:
+      BITCOIN_NETWORK:
+      MONERO_WALLET_RPC_URL:
+      MONERO_FINALITY_CONFIRMATIONS:
+      MONERO_NETWORK:
+      TOR_CONTROL_PORT:
+      TOR_SOCKS5_PORT:
+      MAKER_MIN_BUY_BTC:
+      MAKER_MAX_BUY_BTC:
+      MAKER_ASK_SPREAD:
+      MAKER_PRICE_TICKER_WS_URL:

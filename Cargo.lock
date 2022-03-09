@@ -581,6 +581,7 @@ dependencies = [
  "lazy_static",
  "nom 5.1.2",
  "serde",
+ "serde_json",
  "toml",
 ]
 

@@ -172,7 +172,7 @@ fn env_config(is_testnet: bool) -> env::Config {
 }
 
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Serialize)]
-#[error("Invalid Bitcoin address provided, expected address on network {expected:?}  but address provided is on {actual:?}")]
+#[error("Invalid Bitcoin address provided, expected address on network {expected:?} but address provided is on {actual:?}")]
 pub struct BitcoinAddressNetworkMismatch {
     #[serde(with = "crate::bitcoin::network")]
     expected: bitcoin::Network,

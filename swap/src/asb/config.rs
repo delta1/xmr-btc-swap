@@ -290,7 +290,7 @@ pub fn query_user_for_initial_config(testnet: bool) -> Result<Config> {
     let ask_spread = Decimal::from_f64(ask_spread).context("Unable to parse spread")?;
 
     let rendezvous_point = Input::<Multiaddr>::with_theme(&ColorfulTheme::default())
-        .with_prompt("Do you want to advertise your ASB instance with a rendezvous node? Enter an empty string if not.")
+        .with_prompt("Enter optional multiaddr for Rendezvous node if you want to advertise your asb instance. Empty string for none.")
         .allow_empty(true)
         .interact_text()?;
 

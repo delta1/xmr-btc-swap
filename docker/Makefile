@@ -1,5 +1,7 @@
-SRC_DIR := $(shell cd .. && pwd)
+.phony: help
+help:
+	@echo "Usage: make asb tag=username/asb:latest"
 
 .phony: asb
 asb:
-	docker run --rm -it -v $(SRC_DIR):/home/rust/src ekidd/rust-musl-builder cargo build --bin asb --release
+	docker build -f asb.dockerfile -t $(tag) ..
