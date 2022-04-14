@@ -1,10 +1,10 @@
 version: "3"
 services:
   asb:
-    image: bizzz/asb:latest
+    image: byronhambly/asb:latest
     command: ["asb", "--config", "/etc/asb/config.json", "start"]
     volumes:
-      - ./data:/var/lib/asb/data
+      - ./data:/home/asb/data
     stdin_open: true
     tty: true
     environment:

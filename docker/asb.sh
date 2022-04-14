@@ -7,7 +7,7 @@ set -o pipefail
 if [ -n "$DATA_DIR" ]; then
     ASB_DATA_DIR=$DATA_DIR
 else
-    ASB_DATA_DIR="/var/lib/asb/data"
+    ASB_DATA_DIR="/home/asb/data"
 fi
 
 if [ -n "$NETWORK_LISTEN" ]; then

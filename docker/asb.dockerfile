@@ -12,9 +12,8 @@ ENV UID=10001
 RUN adduser \
     --disabled-password \
     --gecos "" \
-    --home "/nonexistent" \
-    --shell "/sbin/nologin" \
-    --no-create-home \
+    --home "/home/asb" \
+    --shell "/bin/bash" \
     --uid "${UID}" \
     "${USER}"
 
@@ -41,10 +40,10 @@ RUN cargo build --release --locked --package swap --bin asb
 
 # final container
 FROM debian:bullseye-slim
-RUN apt-get update && apt-get install jo
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
+COPY --from=builder /home/asb /home/asb
 
 RUN mkdir -p /etc/asb
 RUN chown -R asb:asb /etc/asb
