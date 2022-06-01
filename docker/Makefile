@@ -4,4 +4,4 @@ help:
 
 .phony: asb
 asb:
-	docker build -f asb.dockerfile -t $(tag) ..
+	docker build -f asb.Dockerfile -t $(tag) ..

@@ -18,7 +18,7 @@ Run `./asb --help` for more information.
 
 ### Running on mainnet
 
-For running the ASB on mainnet you will have to change you `monero-wallet-rpc` setup to mainnet.
+For running the ASB on mainnet you will have to change your `monero-wallet-rpc` setup to mainnet.
 
 It is recommended that you run your own Monero and Bitcoin node when running on mainnet.
 It is possible to plug into public blockchain nodes but be aware that you might lose some privacy doing so.

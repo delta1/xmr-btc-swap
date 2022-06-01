@@ -124,4 +124,6 @@ MAKER=$(jo min_buy_btc="$ASB_MAKER_MIN_BUY_BTC" max_buy_btc="$ASB_MAKER_MAX_BUY_
 
 jo -p data[dir]="$ASB_DATA_DIR" network="$NETWORK" bitcoin="$BITCOIN" monero="$MONERO" tor="$TOR" maker="$MAKER" >/etc/asb/config.json
 
+monero-wallet-rpc --stagenet --daemon-host stagenet.community.rino.io --rpc-bind-port 18083 --disable-rpc-login --wallet-dir /home/asb/data &
+
 exec "$@"

@@ -2,9 +2,17 @@ version: "3"
 services:
   asb:
     image: byronhambly/asb:latest
-    command: ["asb", "--config", "/etc/asb/config.json", "start"]
-    volumes:
-      - ./data:/home/asb/data
+    command:
+      [
+        "asb",
+        "--testnet",
+        "--config",
+        "/etc/asb/config.json",
+        "start"
+      ]
+    user: "asb:asb"
+    # volumes:
+    #   - ./data:/home/asb/data
     stdin_open: true
     tty: true
     environment:
@@ -15,10 +23,10 @@ services:
       BITCOIN_ELECTRUM_RPC_URL:
       BITCOIN_TARGET_BLOCK:
       BITCOIN_FINALITY_CONFIRMATIONS:
-      BITCOIN_NETWORK:
+      BITCOIN_NETWORK: Testnet
       MONERO_WALLET_RPC_URL:
       MONERO_FINALITY_CONFIRMATIONS:
-      MONERO_NETWORK:
+      MONERO_NETWORK: Stagenet
       TOR_CONTROL_PORT:
       TOR_SOCKS5_PORT:
       MAKER_MIN_BUY_BTC:
