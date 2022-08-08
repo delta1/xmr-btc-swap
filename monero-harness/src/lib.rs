@@ -117,11 +117,12 @@ impl<'c> Monero {
         let miner_wallet = self.wallet("miner")?;
         let miner_address = miner_wallet.address().await?.address;
 
-        // generate the first 70 as bulk
+        // generate the first 120 as bulk
+        let amount_of_blocks = 120;
         let monerod = &self.monerod;
         let res = monerod
             .client()
-            .generateblocks(70, miner_address.clone())
+            .generateblocks(amount_of_blocks, miner_address.clone())
             .await?;
         tracing::info!("Generated {:?} blocks", res.blocks.len());
         miner_wallet.refresh().await?;
@@ -211,6 +212,8 @@ impl<'c> Monerod {
             .with_name(name.clone())
             .with_network(network.clone());
         let container = cli.run_with_args(image, run_args);
+        dbg!("HERE");
+        dbg!(&container);
         let monerod_rpc_port = container
             .get_host_port(RPC_PORT)
             .context("port not exposed")?;
