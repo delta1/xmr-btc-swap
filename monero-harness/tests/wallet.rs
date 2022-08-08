@@ -23,7 +23,16 @@ async fn fund_transfer_and_check_tx_key() {
     let bob_wallet = monero.wallet("bob").unwrap();
 
     monero.init_miner().await.unwrap();
-    monero.init_wallet("alice", vec![fund_alice]).await.unwrap();
+    monero
+        .init_wallet(
+            "alice",
+            vec![
+                fund_alice, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000,
+                1000, 1000, 1000,
+            ],
+        )
+        .await
+        .unwrap();
     monero.init_wallet("bob", vec![fund_bob]).await.unwrap();
     monero.start_miner().await.unwrap();
 
