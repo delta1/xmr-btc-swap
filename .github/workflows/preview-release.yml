@@ -17,7 +17,8 @@ jobs:
         uses: larryjoelane/delete-release-action@v1.0.24
         with:
           release-name: preview
-          token: ${{ secrets.BOTTY_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # token: ${{ secrets.BOTTY_GITHUB_TOKEN }}
 
       - name: Give GitHub some time to process the deletion, otherwise our release shows up as draft. Sigh.
         run: sleep 10
