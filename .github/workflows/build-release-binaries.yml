@@ -133,11 +133,10 @@ jobs:
           path: artifacts
       - name: sha256sum
         run: |
-          pwd
           cd artifacts
-          pwd
           ls -alht
-          sha256sum * | tee sha256sum.txt
+          find . -type f -exec mv -t . {} \;
+          find * -type f | xargs sha256sum > hashes.txt
       - name: upload asset
         uses: actions/upload-release-asset@v1.0.2
         env:
@@ -145,6 +144,6 @@ jobs:
           # GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./artifacts/sha256sum.txt
-          asset_name: sha256sum.txt
+          asset_path: ./artifacts/hashes.txt
+          asset_name: hashes.txt
           asset_content_type: text/plain
