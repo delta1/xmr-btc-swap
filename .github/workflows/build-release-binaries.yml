@@ -135,8 +135,12 @@ jobs:
         run: |
           cd artifacts
           ls -alht
+          find * -type d -exec mv {} _{} \;
+          ls -alht
           find . -type f -exec mv -t . {} \;
+          ls -alht
           find * -type f | xargs sha256sum > hashes.txt
+          cat hashes.txt
       - name: upload asset
         uses: actions/upload-release-asset@v1.0.2
         env:
