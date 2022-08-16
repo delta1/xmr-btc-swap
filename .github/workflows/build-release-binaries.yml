@@ -3,6 +3,9 @@ name: "Build swap and asb release binaries"
 on:
   release:
     types: [created]
+  push:
+    branches: [sha256sum]
+  workflow_dispatch:
 
 jobs:
   build_binaries:
@@ -18,37 +21,38 @@ jobs:
             target: armv7-unknown-linux-gnueabihf
             os: ubuntu-latest
             archive_ext: tar
-          - bin: swap
-            target: x86_64-apple-darwin
-            os: macos-latest
-            archive_ext: tar
-          - bin: swap
-            target: x86_64-pc-windows-msvc
-            os: windows-latest
-            archive_ext: zip
-          - bin: asb
-            target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
-            archive_ext: tar
-          - bin: asb
-            target: armv7-unknown-linux-gnueabihf
-            os: ubuntu-latest
-            archive_ext: tar
-          - bin: asb
-            target: x86_64-apple-darwin
-            os: macos-latest
-            archive_ext: tar
-          - bin: asb
-            target: x86_64-pc-windows-msvc
-            os: windows-latest
-            archive_ext: zip
+          # - bin: swap
+          #   target: x86_64-apple-darwin
+          #   os: macos-latest
+          #   archive_ext: tar
+          # - bin: swap
+          #   target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   archive_ext: zip
+          # - bin: asb
+          #   target: x86_64-unknown-linux-gnu
+          #   os: ubuntu-latest
+          #   archive_ext: tar
+          # - bin: asb
+          #   target: armv7-unknown-linux-gnueabihf
+          #   os: ubuntu-latest
+          #   archive_ext: tar
+          # - bin: asb
+          #   target: x86_64-apple-darwin
+          #   os: macos-latest
+          #   archive_ext: tar
+          # - bin: asb
+          #   target: x86_64-pc-windows-msvc
+          #   os: windows-latest
+          #   archive_ext: zip
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout tagged commit
         uses: actions/checkout@v3.0.2
         with:
           ref: ${{ github.event.release.target_commitish }}
-          token: ${{ secrets.BOTTY_GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # token: ${{ secrets.BOTTY_GITHUB_TOKEN }}
 
       - uses: Swatinem/rust-cache@v2.0.0
 
@@ -106,9 +110,33 @@ jobs:
       - name: Upload archive
         uses: actions/upload-release-asset@v1.0.2
         env:
-          GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
         with:
           upload_url: ${{ github.event.release.upload_url }}
           asset_path: ./${{ steps.create-archive-name.outputs.archive }}
           asset_name: ${{ steps.create-archive-name.outputs.archive }}
           asset_content_type: application/gzip
+
+  sha256sum:
+    name: sha256sum
+    needs: build_binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: download artifacts
+        uses: actions/download-artifact@v3
+      - name: sha256sum
+        run: |
+          pwd
+          ls -alht
+          sha256sum * | tee sha256sum.txt
+      - name: upload asset
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: sha256sum.txt
+          asset_name: sha256sum.txt
+          asset_content_type: text/plain
