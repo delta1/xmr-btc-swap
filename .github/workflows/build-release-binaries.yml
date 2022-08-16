@@ -104,6 +104,12 @@ jobs:
           cp target/${{ matrix.target }}/release/${{ matrix.bin }}.exe ./${{ matrix.bin }}.exe
           7z a -tzip ${{ steps.create-archive-name.outputs.archive }} ./${{ matrix.bin }}.exe
 
+      - name: Upload artifact for sha256sum
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ steps.create-archive-name.outputs.archive }}
+          path: ./${{ steps.create-archive-name.outputs.archive }}
+
       - name: Upload archive
         uses: actions/upload-release-asset@v1.0.2
         env:
