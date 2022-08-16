@@ -6,7 +6,7 @@ on:
 
 jobs:
   build_binaries:
-    name: Build swap and asb binaries
+    name: Build swap and asb binaries1
     strategy:
       matrix:
         include:
