@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - sha256sum
 
 jobs:
   create_release:
@@ -30,7 +31,8 @@ jobs:
       - name: Create 'preview' release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GITHUB_TOKEN: ${{ secrets.BOTTY_GITHUB_TOKEN }}
         with:
           tag_name: preview
           release_name: preview
