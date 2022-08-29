@@ -88,7 +88,7 @@ impl Transport for TorDialOnlyTransport {
     }
 
     fn remove_listener(&mut self, _id: ListenerId) -> bool {
-        todo!()
+        todo!("remove_listener...")
     }
 
     fn poll(
@@ -96,7 +96,7 @@ impl Transport for TorDialOnlyTransport {
         _cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<libp2p::core::transport::TransportEvent<Self::ListenerUpgrade, Self::Error>>
     {
-        todo!()
+        todo!("poll...")
     }
 }
 

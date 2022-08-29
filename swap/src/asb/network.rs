@@ -28,7 +28,8 @@ use std::time::Duration;
 use uuid::Uuid;
 
 pub mod transport {
-    use libp2p::tcp::{tokio::Tcp, GenTcpConfig, GenTcpTransport};
+    use libp2p::tcp::tokio::Tcp;
+    use libp2p::tcp::{GenTcpConfig, GenTcpTransport};
 
     use super::*;
 
