@@ -4,7 +4,8 @@ use anyhow::Result;
 use libp2p::core::muxing::StreamMuxerBox;
 use libp2p::core::transport::{Boxed, OptionalTransport};
 use libp2p::dns::TokioDnsConfig;
-use libp2p::tcp::TokioTcpConfig;
+use libp2p::tcp::tokio::Tcp;
+use libp2p::tcp::{GenTcpConfig, GenTcpTransport};
 use libp2p::{identity, PeerId, Transport};
 
 /// Creates the libp2p transport for the swap CLI.
@@ -19,7 +20,8 @@ pub fn new(
     identity: &identity::Keypair,
     maybe_tor_socks5_port: Option<u16>,
 ) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
-    let tcp = TokioTcpConfig::new().nodelay(true);
+    let config = GenTcpConfig::new().nodelay(true);
+    let tcp = GenTcpTransport::<Tcp>::new(config);
     let tcp_with_dns = TokioDnsConfig::system(tcp)?;
     let maybe_tor_transport = match maybe_tor_socks5_port {
         Some(port) => OptionalTransport::some(TorDialOnlyTransport::new(port)),

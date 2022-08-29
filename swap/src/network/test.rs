@@ -9,7 +9,8 @@ use libp2p::core::{identity, Executor, Multiaddr, PeerId, Transport};
 use libp2p::mplex::MplexConfig;
 use libp2p::noise::{Keypair, NoiseConfig, X25519Spec};
 use libp2p::swarm::{AddressScore, NetworkBehaviour, Swarm, SwarmBuilder, SwarmEvent};
-use libp2p::tcp::TokioTcpConfig;
+use libp2p::tcp::tokio::Tcp;
+use libp2p::tcp::GenTcpTransport;
 use libp2p::yamux::YamuxConfig;
 use std::fmt::Debug;
 use std::pin::Pin;
@@ -41,7 +42,7 @@ where
     let noise = NoiseConfig::xx(dh_keys).into_authenticated();
 
     let transport = MemoryTransport::default()
-        .or_transport(TokioTcpConfig::new())
+        .or_transport(GenTcpTransport::<Tcp>::default())
         .upgrade(Version::V1)
         .authenticate(noise)
         .multiplex(SelectUpgrade::new(
@@ -103,7 +104,7 @@ where
 pub trait SwarmExt {
     /// Establishes a connection to the given [`Swarm`], polling both of them
     /// until the connection is established.
-    async fn block_on_connection<T>(&mut self, other: &mut Swarm<T>)
+    async fn block_on_connection<T: Send>(&mut self, other: &mut Swarm<T>)
     where
         T: NetworkBehaviour,
         <T as NetworkBehaviour>::OutEvent: Debug;
@@ -120,10 +121,10 @@ pub trait SwarmExt {
 #[async_trait]
 impl<B> SwarmExt for Swarm<B>
 where
-    B: NetworkBehaviour,
+    B: NetworkBehaviour + Send,
     <B as NetworkBehaviour>::OutEvent: Debug,
 {
-    async fn block_on_connection<T>(&mut self, other: &mut Swarm<T>)
+    async fn block_on_connection<T: Send>(&mut self, other: &mut Swarm<T>)
     where
         T: NetworkBehaviour,
         <T as NetworkBehaviour>::OutEvent: Debug,

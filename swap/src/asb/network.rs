@@ -18,10 +18,9 @@ use libp2p::ping::{Ping, PingConfig, PingEvent};
 use libp2p::request_response::{RequestId, ResponseChannel};
 use libp2p::swarm::dial_opts::PeerCondition;
 use libp2p::swarm::{
-    IntoProtocolsHandler, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-    ProtocolsHandler,
+    ConnectionHandler, IntoConnectionHandler, NetworkBehaviour, NetworkBehaviourAction,
+    PollParameters,
 };
-use libp2p::tcp::TokioTcpConfig;
 use libp2p::websocket::WsConfig;
 use libp2p::{identity, Multiaddr, NetworkBehaviour, PeerId, Transport};
 use std::task::Poll;
@@ -29,14 +28,20 @@ use std::time::Duration;
 use uuid::Uuid;
 
 pub mod transport {
+    use libp2p::tcp::{tokio::Tcp, GenTcpConfig, GenTcpTransport};
+
     use super::*;
 
     /// Creates the libp2p transport for the ASB.
     pub fn new(identity: &identity::Keypair) -> Result<Boxed<(PeerId, StreamMuxerBox)>> {
-        let tcp = TokioTcpConfig::new().nodelay(true);
-        let tcp_with_dns = TokioDnsConfig::system(tcp)?;
-        let websocket_with_dns = WsConfig::new(tcp_with_dns.clone());
+        let config = GenTcpConfig::new().nodelay(true);
 
+        let tcp = GenTcpTransport::<Tcp>::new(config.clone());
+        let tcp_with_dns = TokioDnsConfig::system(tcp)?;
+        let websocket_with_dns = WsConfig::new(tcp_with_dns);
+
+        let tcp = GenTcpTransport::<Tcp>::new(config);
+        let tcp_with_dns = TokioDnsConfig::system(tcp)?;
         let transport = tcp_with_dns.or_transport(websocket_with_dns).boxed();
 
         authenticate_and_multiplex(transport, identity)
@@ -246,11 +251,11 @@ pub mod rendezous {
     }
 
     impl NetworkBehaviour for Behaviour {
-        type ProtocolsHandler =
-            <libp2p::rendezvous::client::Behaviour as NetworkBehaviour>::ProtocolsHandler;
+        type ConnectionHandler =
+            <libp2p::rendezvous::client::Behaviour as NetworkBehaviour>::ConnectionHandler;
         type OutEvent = libp2p::rendezvous::client::Event;
 
-        fn new_handler(&mut self) -> Self::ProtocolsHandler {
+        fn new_handler(&mut self) -> Self::ConnectionHandler {
             self.inner.new_handler()
         }
 
@@ -262,7 +267,14 @@ pub mod rendezous {
             vec![]
         }
 
-        fn inject_connected(&mut self, peer_id: &PeerId) {
+        fn inject_connection_established(
+            &mut self,
+            peer_id: &PeerId,
+            _: &ConnectionId,
+            _: &libp2p::core::ConnectedPoint,
+            _: Option<&Vec<Multiaddr>>,
+            _: usize,
+        ) {
             if peer_id == &self.rendezvous_peer_id {
                 self.connection_status = ConnectionStatus::Connected;
 
@@ -277,7 +289,14 @@ pub mod rendezous {
             }
         }
 
-        fn inject_disconnected(&mut self, peer_id: &PeerId) {
+        fn inject_connection_closed(
+            &mut self,
+            peer_id: &PeerId,
+            _: &ConnectionId,
+            _: &libp2p::core::ConnectedPoint,
+            _: <Self::ConnectionHandler as IntoConnectionHandler>::Handler,
+            _remaining_established: usize,
+        ) {
             if peer_id == &self.rendezvous_peer_id {
                 self.connection_status = ConnectionStatus::Disconnected;
             }
@@ -287,7 +306,7 @@ pub mod rendezous {
             &mut self,
             peer_id: PeerId,
             connection: ConnectionId,
-            event: <<Self::ProtocolsHandler as IntoProtocolsHandler>::Handler as ProtocolsHandler>::OutEvent,
+            event: <<Self::ConnectionHandler as IntoConnectionHandler>::Handler as ConnectionHandler>::OutEvent,
         ) {
             self.inner.inject_event(peer_id, connection, event)
         }
@@ -295,7 +314,7 @@ pub mod rendezous {
         fn inject_dial_failure(
             &mut self,
             peer_id: Option<PeerId>,
-            _handler: Self::ProtocolsHandler,
+            _handler: Self::ConnectionHandler,
             _error: &DialError,
         ) {
             if let Some(id) = peer_id {
@@ -310,7 +329,7 @@ pub mod rendezous {
             &mut self,
             cx: &mut std::task::Context<'_>,
             params: &mut impl PollParameters,
-        ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
+        ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
             match &mut self.registration_status {
                 RegistrationStatus::RegisterOnNextConnection => match self.connection_status {
                     ConnectionStatus::Disconnected => {
@@ -321,7 +340,7 @@ pub mod rendezous {
                                 .condition(PeerCondition::Disconnected)
                                 .build(),
 
-                            handler: Self::ProtocolsHandler::new(Duration::from_secs(30)),
+                            handler: Self::ConnectionHandler::new(Duration::from_secs(30)),
                         });
                     }
                     ConnectionStatus::Dialling => {}
@@ -345,7 +364,7 @@ pub mod rendezous {
                                     opts: DialOpts::peer_id(self.rendezvous_peer_id)
                                         .condition(PeerCondition::Disconnected)
                                         .build(),
-                                    handler: Self::ProtocolsHandler::new(Duration::from_secs(30)),
+                                    handler: Self::ConnectionHandler::new(Duration::from_secs(30)),
                                 });
                             }
                             ConnectionStatus::Dialling => {}

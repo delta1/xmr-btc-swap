@@ -11,9 +11,8 @@ use futures::{AsyncWriteExt, FutureExt};
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::upgrade;
 use libp2p::swarm::{
-    KeepAlive, NegotiatedSubstream, NetworkBehaviour, NetworkBehaviourAction, NotifyHandler,
-    PollParameters, ProtocolsHandler, ProtocolsHandlerEvent, ProtocolsHandlerUpgrErr,
-    SubstreamProtocol,
+    ConnectionHandler, ConnectionHandlerEvent, KeepAlive, NegotiatedSubstream, NetworkBehaviour,
+    NetworkBehaviourAction, NotifyHandler, PollParameters, SubstreamProtocol,
 };
 use libp2p::{Multiaddr, PeerId};
 use std::collections::VecDeque;
@@ -53,20 +52,16 @@ impl From<Completed> for cli::OutEvent {
 }
 
 impl NetworkBehaviour for Behaviour {
-    type ProtocolsHandler = Handler;
+    type ConnectionHandler = Handler;
     type OutEvent = Completed;
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
         Handler::new(self.env_config, self.bitcoin_wallet.clone())
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         Vec::new()
     }
-
-    fn inject_connected(&mut self, _: &PeerId) {}
-
-    fn inject_disconnected(&mut self, _: &PeerId) {}
 
     fn inject_event(&mut self, peer: PeerId, _: ConnectionId, completed: Completed) {
         self.completed_swaps.push_back((peer, completed));
@@ -76,7 +71,7 @@ impl NetworkBehaviour for Behaviour {
         &mut self,
         _cx: &mut Context<'_>,
         _params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
+    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
         if let Some((_, event)) = self.completed_swaps.pop_front() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(event));
         }
@@ -129,7 +124,7 @@ pub struct NewSwap {
 #[derive(Debug)]
 pub struct Completed(Result<State2>);
 
-impl ProtocolsHandler for Handler {
+impl ConnectionHandler for Handler {
     type InEvent = NewSwap;
     type OutEvent = Completed;
     type Error = Void;
@@ -155,13 +150,16 @@ impl ProtocolsHandler for Handler {
         let env_config = self.env_config;
 
         let protocol = tokio::time::timeout(self.timeout, async move {
-            write_cbor_message(&mut substream, SpotPriceRequest {
-                btc: info.btc,
-                blockchain_network: BlockchainNetwork {
-                    bitcoin: env_config.bitcoin_network,
-                    monero: env_config.monero_network,
+            write_cbor_message(
+                &mut substream,
+                SpotPriceRequest {
+                    btc: info.btc,
+                    blockchain_network: BlockchainNetwork {
+                        bitcoin: env_config.bitcoin_network,
+                        monero: env_config.monero_network,
+                    },
                 },
-            })
+            )
             .await?;
 
             let xmr = Result::from(read_cbor_message::<SpotPriceResponse>(&mut substream).await?)?;
@@ -213,7 +211,9 @@ impl ProtocolsHandler for Handler {
     fn inject_dial_upgrade_error(
         &mut self,
         _: Self::OutboundOpenInfo,
-        _: ProtocolsHandlerUpgrErr<Void>,
+        _: libp2p::swarm::ConnectionHandlerUpgrErr<
+            <Self::OutboundProtocol as libp2p::swarm::handler::OutboundUpgradeSend>::Error,
+        >,
     ) {
     }
 
@@ -226,7 +226,7 @@ impl ProtocolsHandler for Handler {
         &mut self,
         cx: &mut Context<'_>,
     ) -> Poll<
-        ProtocolsHandlerEvent<
+        ConnectionHandlerEvent<
             Self::OutboundProtocol,
             Self::OutboundOpenInfo,
             Self::OutEvent,
@@ -235,14 +235,14 @@ impl ProtocolsHandler for Handler {
     > {
         if let Some(new_swap) = self.new_swaps.pop_front() {
             self.keep_alive = KeepAlive::Yes;
-            return Poll::Ready(ProtocolsHandlerEvent::OutboundSubstreamRequest {
+            return Poll::Ready(ConnectionHandlerEvent::OutboundSubstreamRequest {
                 protocol: SubstreamProtocol::new(protocol::new(), new_swap),
             });
         }
 
         if let Some(result) = futures::ready!(self.outbound_stream.poll_unpin(cx)) {
             self.outbound_stream = OptionFuture::from(None);
-            return Poll::Ready(ProtocolsHandlerEvent::Custom(Completed(result)));
+            return Poll::Ready(ConnectionHandlerEvent::Custom(Completed(result)));
         }
 
         Poll::Pending

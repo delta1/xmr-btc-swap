@@ -12,8 +12,8 @@ use futures::{AsyncWriteExt, FutureExt};
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::upgrade;
 use libp2p::swarm::{
-    KeepAlive, NegotiatedSubstream, NetworkBehaviour, NetworkBehaviourAction, PollParameters,
-    ProtocolsHandler, ProtocolsHandlerEvent, ProtocolsHandlerUpgrErr, SubstreamProtocol,
+    ConnectionHandler, ConnectionHandlerEvent, KeepAlive, NegotiatedSubstream, NetworkBehaviour,
+    NetworkBehaviourAction, PollParameters, SubstreamProtocol,
 };
 use libp2p::{Multiaddr, PeerId};
 use std::collections::VecDeque;
@@ -140,10 +140,10 @@ impl<LR> NetworkBehaviour for Behaviour<LR>
 where
     LR: LatestRate + Send + 'static + Clone,
 {
-    type ProtocolsHandler = Handler<LR>;
+    type ConnectionHandler = Handler<LR>;
     type OutEvent = OutEvent;
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
         Handler::new(
             self.min_buy,
             self.max_buy,
@@ -156,10 +156,6 @@ where
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         Vec::new()
     }
-
-    fn inject_connected(&mut self, _: &PeerId) {}
-
-    fn inject_disconnected(&mut self, _: &PeerId) {}
 
     fn inject_event(&mut self, peer_id: PeerId, _: ConnectionId, event: HandlerOutEvent) {
         match event {
@@ -185,7 +181,7 @@ where
         &mut self,
         _cx: &mut std::task::Context<'_>,
         _params: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
+    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
         if let Some(event) = self.events.pop_front() {
             return Poll::Ready(NetworkBehaviourAction::GenerateEvent(event));
         }
@@ -240,7 +236,7 @@ pub enum HandlerOutEvent {
     Completed(Result<(Uuid, State3)>),
 }
 
-impl<LR> ProtocolsHandler for Handler<LR>
+impl<LR> ConnectionHandler for Handler<LR>
 where
     LR: LatestRate + Send + 'static,
 {
@@ -419,8 +415,10 @@ where
 
     fn inject_dial_upgrade_error(
         &mut self,
-        _: Self::OutboundOpenInfo,
-        _: ProtocolsHandlerUpgrErr<Void>,
+        _info: Self::OutboundOpenInfo,
+        _error: libp2p::swarm::ConnectionHandlerUpgrErr<
+            <Self::OutboundProtocol as libp2p::swarm::handler::OutboundUpgradeSend>::Error,
+        >,
     ) {
         unreachable!("Alice does not dial")
     }
@@ -434,7 +432,7 @@ where
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> Poll<
-        ProtocolsHandlerEvent<
+        ConnectionHandlerEvent<
             Self::OutboundProtocol,
             Self::OutboundOpenInfo,
             Self::OutEvent,
@@ -442,12 +440,12 @@ where
         >,
     > {
         if let Some(event) = self.events.pop_front() {
-            return Poll::Ready(ProtocolsHandlerEvent::Custom(event));
+            return Poll::Ready(ConnectionHandlerEvent::Custom(event));
         }
 
         if let Some(result) = futures::ready!(self.inbound_stream.poll_unpin(cx)) {
             self.inbound_stream = OptionFuture::from(None);
-            return Poll::Ready(ProtocolsHandlerEvent::Custom(HandlerOutEvent::Completed(
+            return Poll::Ready(ConnectionHandlerEvent::Custom(HandlerOutEvent::Completed(
                 result,
             )));
         }

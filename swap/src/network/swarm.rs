@@ -62,7 +62,7 @@ pub async fn cli<T>(
     behaviour: T,
 ) -> Result<Swarm<T>>
 where
-    T: NetworkBehaviour,
+    T: NetworkBehaviour + 'static,
 {
     let maybe_tor_socks5_port = match tor::Client::new(tor_socks5_port).assert_tor_running().await {
         Ok(()) => Some(tor_socks5_port),

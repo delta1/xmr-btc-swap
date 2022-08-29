@@ -2,10 +2,9 @@ use anyhow::Result;
 use data_encoding::BASE32;
 use futures::future::{BoxFuture, FutureExt, Ready};
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
-use libp2p::core::transport::TransportError;
+use libp2p::core::transport::{ListenerId, TransportError};
 use libp2p::core::Transport;
-use libp2p::tcp::tokio::{Tcp, TcpStream};
-use libp2p::tcp::TcpListenStream;
+use libp2p::tcp::tokio::TcpStream;
 use std::borrow::Cow;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::{fmt, io};
@@ -26,26 +25,26 @@ impl TorDialOnlyTransport {
 impl Transport for TorDialOnlyTransport {
     type Output = TcpStream;
     type Error = io::Error;
-    type Listener = TcpListenStream<Tcp>;
     type ListenerUpgrade = Ready<Result<Self::Output, Self::Error>>;
     type Dial = BoxFuture<'static, Result<Self::Output, Self::Error>>;
 
-    fn listen_on(self, addr: Multiaddr) -> Result<Self::Listener, TransportError<Self::Error>> {
+    fn listen_on(&mut self, addr: Multiaddr) -> Result<ListenerId, TransportError<Self::Error>> {
         Err(TransportError::MultiaddrNotSupported(addr))
     }
 
-    fn dial(self, addr: Multiaddr) -> Result<Self::Dial, TransportError<Self::Error>> {
+    fn dial(&mut self, addr: Multiaddr) -> Result<Self::Dial, TransportError<Self::Error>> {
         let address = TorCompatibleAddress::from_multiaddr(Cow::Borrowed(&addr))?;
 
         if address.is_certainly_not_reachable_via_tor_daemon() {
             return Err(TransportError::MultiaddrNotSupported(addr));
         }
 
+        let socks_port = self.socks_port;
         let dial_future = async move {
             tracing::debug!(address = %addr, "Establishing connection through Tor proxy");
 
             let stream =
-                Socks5Stream::connect((Ipv4Addr::LOCALHOST, self.socks_port), address.to_string())
+                Socks5Stream::connect((Ipv4Addr::LOCALHOST, socks_port), address.to_string())
                     .await
                     .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
@@ -60,18 +59,23 @@ impl Transport for TorDialOnlyTransport {
     fn address_translation(&self, _: &Multiaddr, _: &Multiaddr) -> Option<Multiaddr> {
         None
     }
-    fn dial_as_listener(self, addr: Multiaddr) -> Result<Self::Dial, TransportError<Self::Error>> {
+
+    fn dial_as_listener(
+        &mut self,
+        addr: Multiaddr,
+    ) -> Result<Self::Dial, TransportError<Self::Error>> {
         let address = TorCompatibleAddress::from_multiaddr(Cow::Borrowed(&addr))?;
 
         if address.is_certainly_not_reachable_via_tor_daemon() {
             return Err(TransportError::MultiaddrNotSupported(addr));
         }
 
+        let socks_port = self.socks_port;
         let dial_future = async move {
             tracing::debug!(address = %addr, "Establishing connection through Tor proxy");
 
             let stream =
-                Socks5Stream::connect((Ipv4Addr::LOCALHOST, self.socks_port), address.to_string())
+                Socks5Stream::connect((Ipv4Addr::LOCALHOST, socks_port), address.to_string())
                     .await
                     .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, e))?;
 
@@ -81,6 +85,18 @@ impl Transport for TorDialOnlyTransport {
         };
 
         Ok(dial_future.boxed())
+    }
+
+    fn remove_listener(&mut self, _id: ListenerId) -> bool {
+        todo!()
+    }
+
+    fn poll(
+        self: std::pin::Pin<&mut Self>,
+        _cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<libp2p::core::transport::TransportEvent<Self::ListenerUpgrade, Self::Error>>
+    {
+        todo!()
     }
 }
 

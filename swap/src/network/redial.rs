@@ -5,7 +5,7 @@ use futures::future::FutureExt;
 use libp2p::core::connection::ConnectionId;
 use libp2p::core::Multiaddr;
 use libp2p::swarm::dial_opts::{DialOpts, PeerCondition};
-use libp2p::swarm::protocols_handler::DummyProtocolsHandler;
+use libp2p::swarm::handler::DummyConnectionHandler;
 use libp2p::swarm::{NetworkBehaviour, NetworkBehaviourAction, PollParameters};
 use libp2p::PeerId;
 use std::pin::Pin;
@@ -57,18 +57,25 @@ impl Behaviour {
 }
 
 impl NetworkBehaviour for Behaviour {
-    type ProtocolsHandler = DummyProtocolsHandler;
+    type ConnectionHandler = DummyConnectionHandler;
     type OutEvent = OutEvent;
 
-    fn new_handler(&mut self) -> Self::ProtocolsHandler {
-        DummyProtocolsHandler::default()
+    fn new_handler(&mut self) -> Self::ConnectionHandler {
+        DummyConnectionHandler::default()
     }
 
     fn addresses_of_peer(&mut self, _: &PeerId) -> Vec<Multiaddr> {
         Vec::new()
     }
 
-    fn inject_connected(&mut self, peer_id: &PeerId) {
+    fn inject_connection_established(
+        &mut self,
+        peer_id: &PeerId,
+        _connection_id: &ConnectionId,
+        _endpoint: &libp2p::core::ConnectedPoint,
+        _failed_addresses: Option<&Vec<Multiaddr>>,
+        _other_established: usize,
+    ) {
         if peer_id != &self.peer {
             return;
         }
@@ -77,7 +84,14 @@ impl NetworkBehaviour for Behaviour {
         self.sleep = None;
     }
 
-    fn inject_disconnected(&mut self, peer_id: &PeerId) {
+    fn inject_connection_closed(
+        &mut self,
+        peer_id: &PeerId,
+        _: &ConnectionId,
+        _: &libp2p::core::ConnectedPoint,
+        _: <Self::ConnectionHandler as libp2p::swarm::IntoConnectionHandler>::Handler,
+        _remaining_established: usize,
+    ) {
         if peer_id != &self.peer {
             return;
         }
@@ -94,7 +108,7 @@ impl NetworkBehaviour for Behaviour {
         &mut self,
         cx: &mut Context<'_>,
         _: &mut impl PollParameters,
-    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ProtocolsHandler>> {
+    ) -> Poll<NetworkBehaviourAction<Self::OutEvent, Self::ConnectionHandler>> {
         let sleep = match self.sleep.as_mut() {
             None => return Poll::Pending, // early exit if we shouldn't be re-dialling
             Some(future) => future,
@@ -117,7 +131,7 @@ impl NetworkBehaviour for Behaviour {
             opts: DialOpts::peer_id(self.peer)
                 .condition(PeerCondition::Disconnected)
                 .build(),
-            handler: Self::ProtocolsHandler::default(),
+            handler: Self::ConnectionHandler::default(),
         })
     }
 }
