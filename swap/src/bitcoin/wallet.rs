@@ -346,7 +346,7 @@ where
         let script = address.script_pubkey();
 
         let mut tx_builder = wallet.build_tx();
-        tx_builder.add_recipient(script.clone(), amount.as_sat());
+        tx_builder.add_recipient(script.clone(), amount.to_sat());
         tx_builder.fee_rate(fee_rate);
         let (psbt, _details) = tx_builder.finish()?;
         let mut psbt: PartiallySignedTransaction = psbt;
@@ -392,7 +392,7 @@ where
             return Ok(Amount::ZERO);
         }
         let client = self.client.lock().await;
-        let min_relay_fee = client.min_relay_fee()?.as_sat();
+        let min_relay_fee = client.min_relay_fee()?.to_sat();
 
         if balance.get_total() < min_relay_fee {
             return Ok(Amount::ZERO);
@@ -443,18 +443,18 @@ fn estimate_fee(
     fee_rate: FeeRate,
     min_relay_fee: Amount,
 ) -> Result<Amount> {
-    if transfer_amount.as_sat() <= 546 {
+    if transfer_amount.to_sat() <= 546 {
         bail!("Amounts needs to be greater than Bitcoin dust amount.")
     }
     let fee_rate_svb = fee_rate.as_sat_per_vb();
     if fee_rate_svb <= 0.0 {
         bail!("Fee rate needs to be > 0")
     }
-    if fee_rate_svb > 100_000_000.0 || min_relay_fee.as_sat() > 100_000_000 {
+    if fee_rate_svb > 100_000_000.0 || min_relay_fee.to_sat() > 100_000_000 {
         bail!("A fee_rate or min_relay_fee of > 1BTC does not make sense")
     }
 
-    let min_relay_fee = if min_relay_fee.as_sat() == 0 {
+    let min_relay_fee = if min_relay_fee.to_sat() == 0 {
         // if min_relay_fee is 0 we don't fail, we just set it to 1 satoshi;
         Amount::ONE_SAT
     } else {
@@ -474,9 +474,9 @@ fn estimate_fee(
         "Estimated fee for transaction",
     );
 
-    let transfer_amount = Decimal::from(transfer_amount.as_sat());
+    let transfer_amount = Decimal::from(transfer_amount.to_sat());
     let max_allowed_fee = transfer_amount * MAX_RELATIVE_TX_FEE;
-    let min_relay_fee = Decimal::from(min_relay_fee.as_sat());
+    let min_relay_fee = Decimal::from(min_relay_fee.to_sat());
 
     let recommended_fee = if sats_per_vbyte < min_relay_fee {
         tracing::warn!(
@@ -932,6 +932,7 @@ mod tests {
     use super::*;
     use crate::bitcoin::{PublicKey, TxLock};
     use crate::tracing_ext::capture_logs;
+    use bitcoin::hashes::Hash;
     use proptest::prelude::*;
     use tracing::level_filters::LevelFilter;
 
@@ -1031,7 +1032,7 @@ mod tests {
 
         // weight / 4.0 *  sat_per_vb would be greater than 3% hence we take total
         // max allowed fee.
-        assert_eq!(is_fee.as_sat(), MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
+        assert_eq!(is_fee.to_sat(), MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
     }
 
     proptest! {
@@ -1067,7 +1068,7 @@ mod tests {
             let is_fee = estimate_fee(weight, amount, fee_rate, relay_fee).unwrap();
 
             // weight / 4 * 1_000 is always lower than MAX_ABSOLUTE_TX_FEE
-            assert!(is_fee.as_sat() < MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
+            assert!(is_fee.to_sat() < MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
         }
     }
 
@@ -1086,7 +1087,7 @@ mod tests {
             let is_fee = estimate_fee(weight, amount, fee_rate, relay_fee).unwrap();
 
             // weight / 4 * 1_000  is always higher than MAX_ABSOLUTE_TX_FEE
-            assert!(is_fee.as_sat() >= MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
+            assert!(is_fee.to_sat() >= MAX_ABSOLUTE_TX_FEE.to_u64().unwrap());
         }
     }
 
@@ -1142,7 +1143,7 @@ mod tests {
         let wallet = WalletBuilder::new(10_000).build();
         let amount = wallet.max_giveable(TxLock::script_size()).await.unwrap();
 
-        assert!(amount.as_sat() > 0);
+        assert!(amount.to_sat() > 0);
     }
 
     /// This test ensures that the relevant script output of the transaction
@@ -1212,7 +1213,8 @@ mod tests {
     fn printing_status_change_doesnt_spam_on_same_status() {
         let writer = capture_logs(LevelFilter::DEBUG);
 
-        let tx = Txid::default();
+        let inner = bitcoin::hashes::sha256d::Hash::all_zeros();
+        let tx = Txid::from_hash(inner);
         let mut old = None;
         old = Some(print_status_change(tx, old, ScriptStatus::Unseen));
         old = Some(print_status_change(tx, old, ScriptStatus::InMempool));
