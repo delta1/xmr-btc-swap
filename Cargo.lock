@@ -313,8 +313,9 @@ dependencies = [
 
 [[package]]
 name = "bitcoin-harness"
-version = "0.2.1"
-source = "git+https://github.com/delta1/bitcoin-harness-rs#236d9185efa99fe4ffaf7cb4d6270ddbc5f3d9c4"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b6a18713ec8acbc96d1e843f6998f00e8c5d81173e38760023b84926b8db3b8"
 dependencies = [
  "base64 0.12.3",
  "bitcoin",
@@ -957,7 +958,7 @@ checksum = "5caaa75cbd2b960ff1e5392d2cfb1f44717fffe12fc1f32b7b5d1267f99732a6"
 [[package]]
 name = "ecdsa_fun"
 version = "0.7.1"
-source = "git+https://github.com/delta1/secp256kfun?branch=secp256k1-0.24#b666877ce023b282919bc3c1bc8f200f20291273"
+source = "git+https://github.com/delta1/secp256kfun?rev=b666877ce023b282919bc3c1bc8f200f20291273#b666877ce023b282919bc3c1bc8f200f20291273"
 dependencies = [
  "bincode",
  "rand_chacha 0.3.1",
@@ -3313,7 +3314,7 @@ dependencies = [
 [[package]]
 name = "secp256kfun"
 version = "0.7.1"
-source = "git+https://github.com/delta1/secp256kfun?branch=secp256k1-0.24#b666877ce023b282919bc3c1bc8f200f20291273"
+source = "git+https://github.com/delta1/secp256kfun?rev=b666877ce023b282919bc3c1bc8f200f20291273#b666877ce023b282919bc3c1bc8f200f20291273"
 dependencies = [
  "digest 0.10.5",
  "rand_core 0.6.2",
@@ -3510,7 +3511,7 @@ dependencies = [
 [[package]]
 name = "sigma_fun"
 version = "0.4.1"
-source = "git+https://github.com/delta1/secp256kfun?branch=secp256k1-0.24#b666877ce023b282919bc3c1bc8f200f20291273"
+source = "git+https://github.com/delta1/secp256kfun?rev=b666877ce023b282919bc3c1bc8f200f20291273#b666877ce023b282919bc3c1bc8f200f20291273"
 dependencies = [
  "curve25519-dalek-ng",
  "digest 0.10.5",
