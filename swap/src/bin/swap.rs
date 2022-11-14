@@ -12,6 +12,7 @@
 #![forbid(unsafe_code)]
 #![allow(non_snake_case)]
 
+use ::bitcoin::util::bip32::ChildNumber;
 use anyhow::{bail, Context, Result};
 use comfy_table::Table;
 use qrcode::render::unicode;
@@ -525,10 +526,19 @@ async fn init_bitcoin_wallet(
 ) -> Result<bitcoin::Wallet> {
     let wallet_dir = data_dir.join("wallet");
 
+    let mut key = seed.derive_extended_private_key(env_config.bitcoin_network)?;
+    dbg!(&key.child_number);
+    // if env_config.bitcoin_network == bitcoin::Network::Testnet {
+    //     key.child_number = ChildNumber::from_normal_idx(0)?;
+    // }
+    dbg!(&key);
+    let secret = key.private_key.display_secret();
+    dbg!(secret);
+
     let wallet = bitcoin::Wallet::new(
         electrum_rpc_url.clone(),
         &wallet_dir,
-        seed.derive_extended_private_key(env_config.bitcoin_network)?,
+        key,
         env_config,
         bitcoin_target_block,
     )

@@ -12,6 +12,7 @@ use bdk::keys::DerivableKey;
 use bdk::wallet::export::FullyNodedExport;
 use bdk::wallet::AddressIndex;
 use bdk::{FeeRate, KeychainKind, SignOptions, SyncOptions};
+use bitcoin::util::bip32::ExtendedPrivKey;
 use bitcoin::{Network, Script};
 use reqwest::Url;
 use rust_decimal::prelude::*;
@@ -45,30 +46,75 @@ impl Wallet {
     pub async fn new(
         electrum_rpc_url: Url,
         wallet_dir: &Path,
-        key: impl DerivableKey<Segwitv0> + Clone,
+        key: ExtendedPrivKey,
         env_config: env::Config,
         target_block: usize,
     ) -> Result<Self> {
-        let db = bdk::sled::open(wallet_dir)?.open_tree(SLED_TREE_NAME)?;
+        let database = bdk::sled::open(wallet_dir)?.open_tree(SLED_TREE_NAME)?;
 
-        let wallet = bdk::Wallet::new(
-            bdk::template::Bip84(key.clone(), KeychainKind::External),
-            Some(bdk::template::Bip84(key, KeychainKind::Internal)),
-            env_config.bitcoin_network,
-            db,
+        dbg!(&key);
+        let old_db = bdk016::sled::open(wallet_dir)?.open_tree(SLED_TREE_NAME)?;
+        let old_network = match env_config.bitcoin_network {
+            Network::Bitcoin => bdk016::bitcoin::Network::Bitcoin,
+            Network::Testnet => bdk016::bitcoin::Network::Testnet,
+            _ => unimplemented!(),
+        };
+        let old_key = bdk016::bitcoin::util::bip32::ExtendedPrivKey {
+            network: old_network,
+            depth: 0,
+            parent_fingerprint: Default::default(),
+            child_number: bdk016::bitcoin::util::bip32::ChildNumber::from_normal_idx(0)?,
+            private_key: bdk016::bitcoin::PrivateKey::from_slice(
+                key.private_key.as_ref(),
+                old_network,
+            )?,
+            chain_code: bdk016::bitcoin::util::bip32::ChainCode::from(
+                &key.chain_code.as_bytes()[..],
+            ),
+        };
+
+        dbg!(&old_key);
+        let old_wallet = bdk016::Wallet::new_offline(
+            bdk016::template::Bip84(old_key.clone(), bdk016::KeychainKind::External),
+            Some(bdk016::template::Bip84(
+                old_key.clone(),
+                bdk016::KeychainKind::Internal,
+            )),
+            old_network,
+            old_db,
         )?;
 
-        let client = Client::new(electrum_rpc_url, env_config.bitcoin_sync_interval())?;
+        dbg!(old_wallet);
+        panic!("we did it!");
 
-        let network = wallet.network();
+        // let wallet = match bdk::Wallet::new(
+        //     bdk::template::Bip84(key.clone(), KeychainKind::External),
+        //     Some(bdk::template::Bip84(key, KeychainKind::Internal)),
+        //     env_config.bitcoin_network,
+        //     database,
+        // ) {
+        //     Ok(w) => w,
+        //     Err(e) if matches!(e, bdk::Error::ChecksumMismatch) => {
 
-        Ok(Self {
-            client: Arc::new(Mutex::new(client)),
-            wallet: Arc::new(Mutex::new(wallet)),
-            finality_confirmations: env_config.bitcoin_finality_confirmations,
-            network,
-            target_block,
-        })
+        //         let ext = old_wallet.get_descriptor_for_keychain(bdk016::KeychainKind::External);
+        //         let int = old_wallet.get_descriptor_for_keychain(bdk016::KeychainKind::Internal);
+
+        //         todo!("migrate descriptors?");
+        //     }
+        //     Err(_e) => panic!("no"),
+        // };
+
+        // let client = Client::new(electrum_rpc_url, env_config.bitcoin_sync_interval())?;
+
+        // let network = wallet.network();
+
+        // Ok(Self {
+        //     client: Arc::new(Mutex::new(client)),
+        //     wallet: Arc::new(Mutex::new(wallet)),
+        //     finality_confirmations: env_config.bitcoin_finality_confirmations,
+        //     network,
+        //     target_block,
+        // })
     }
 
     /// Broadcast the given transaction to the network and emit a log statement

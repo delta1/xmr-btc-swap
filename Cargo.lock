@@ -214,6 +214,15 @@ dependencies = [
 
 [[package]]
 name = "base64"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b25d992356d2eb0ed82172f5248873db5560c4721f564b13cb5193bda5e668e"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
+name = "base64"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3441f0f7b02788e948e47f457ca01f1d7e6d92c693bc132c22b087d3141c03ff"
@@ -225,6 +234,35 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1b586273c5702936fe7b7d6896644d8be71e6314cfe09d3167c95f712589e8"
 
 [[package]]
+name = "base64-compat"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5a8d4d2746f89841e49230dd26917df1876050f95abafafbe34f47cb534b88d7"
+dependencies = [
+ "byteorder",
+]
+
+[[package]]
+name = "bdk"
+version = "0.16.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3face7de38293a2f7e2a9f69a48b442f28e864da0fc7a6a977388e31bdc367d7"
+dependencies = [
+ "async-trait",
+ "bdk-macros",
+ "bitcoin 0.27.1",
+ "electrum-client 0.8.0",
+ "js-sys",
+ "log",
+ "miniscript 6.1.0",
+ "rand 0.7.3",
+ "serde",
+ "serde_json",
+ "sled",
+ "tokio",
+]
+
+[[package]]
 name = "bdk"
 version = "0.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -232,12 +270,12 @@ checksum = "c50e3f08fbcd7eb34f11e066a1353986d583f1f87af70f7cd50bff9fce97c817"
 dependencies = [
  "async-trait",
  "bdk-macros",
- "bitcoin",
- "electrum-client",
+ "bitcoin 0.29.2",
+ "electrum-client 0.12.0",
  "getrandom 0.2.6",
  "js-sys",
  "log",
- "miniscript",
+ "miniscript 8.0.0",
  "rand 0.8.3",
  "serde",
  "serde_json",
@@ -255,6 +293,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "bech32"
+version = "0.8.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf9ff0bbfd639f15c74af777d81383cf53efb7c93613f6cab67c6c11e05bbf8b"
 
 [[package]]
 name = "bech32"
@@ -300,14 +344,27 @@ checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
 name = "bitcoin"
+version = "0.27.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a41df6ad9642c5c15ae312dd3d074de38fd3eb7cc87ad4ce10f90292a83fe4d"
+dependencies = [
+ "base64-compat",
+ "bech32 0.8.1",
+ "bitcoin_hashes 0.10.0",
+ "secp256k1 0.20.3",
+ "serde",
+]
+
+[[package]]
+name = "bitcoin"
 version = "0.29.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0694ea59225b0c5f3cb405ff3f670e4828358ed26aec49dc352f730f0cb1a8a3"
 dependencies = [
  "base64 0.13.1",
- "bech32",
- "bitcoin_hashes",
- "secp256k1",
+ "bech32 0.9.1",
+ "bitcoin_hashes 0.11.0",
+ "secp256k1 0.24.1",
  "serde",
 ]
 
@@ -318,7 +375,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6b6a18713ec8acbc96d1e843f6998f00e8c5d81173e38760023b84926b8db3b8"
 dependencies = [
  "base64 0.12.3",
- "bitcoin",
+ "bitcoin 0.29.2",
  "bitcoincore-rpc-json",
  "futures",
  "hex",
@@ -331,6 +388,15 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
+]
+
+[[package]]
+name = "bitcoin_hashes"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "006cc91e1a1d99819bc5b8214be3555c1f0611b169f527a1fdc54ed1f2b745b0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
@@ -348,7 +414,7 @@ version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c231bea28e314879c5aef240f6052e8a72a369e3c9f9b20d9bfbb33ad18029b2"
 dependencies = [
- "bitcoin",
+ "bitcoin 0.29.2",
  "serde",
  "serde_json",
 ]
@@ -1001,11 +1067,27 @@ dependencies = [
 
 [[package]]
 name = "electrum-client"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd12f125852d77980725243b2a8b3bea73cd4c7a22c33bc52b08b664c561dc7"
+dependencies = [
+ "bitcoin 0.27.1",
+ "log",
+ "rustls 0.16.0",
+ "serde",
+ "serde_json",
+ "socks",
+ "webpki 0.21.4",
+ "webpki-roots 0.19.0",
+]
+
+[[package]]
+name = "electrum-client"
 version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "82a232d46710f8064b7bb2029d82819fc1f5fba053687e0e3bb47cc762af24f6"
 dependencies = [
- "bitcoin",
+ "bitcoin 0.29.2",
  "byteorder",
  "libc",
  "log",
@@ -1298,8 +1380,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8fc3cb4d91f53b50155bdcfd23f6a4c39ae1969c2ae85982b135750cccaf5fce"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.9.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -2148,11 +2232,21 @@ checksum = "0c835948974f68e0bd58636fc6c5b1fbff7b297e3046f11b3b3c18bbac012c6d"
 
 [[package]]
 name = "miniscript"
+version = "6.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e292b58407dfbf1384e5aca8428d3b0f2eaa09d24cb17088f6db0b7ca31194a"
+dependencies = [
+ "bitcoin 0.27.1",
+ "serde",
+]
+
+[[package]]
+name = "miniscript"
 version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f4975078076f0b7b914a3044ad7432d2a7fcec38edb855afdc672e24ca35b69"
 dependencies = [
- "bitcoin",
+ "bitcoin 0.29.2",
  "serde",
 ]
 
@@ -3175,6 +3269,19 @@ dependencies = [
 
 [[package]]
 name = "rustls"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b25a18b1bf7387f0145e7f8324e700805aade3842dd3db2e74e4cdeb4677c09e"
+dependencies = [
+ "base64 0.10.1",
+ "log",
+ "ring",
+ "sct 0.6.0",
+ "webpki 0.21.4",
+]
+
+[[package]]
+name = "rustls"
 version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "064fd21ff87c6e87ed4506e68beb42459caa4a0e2eb144932e6776768556980b"
@@ -3292,14 +3399,33 @@ dependencies = [
 
 [[package]]
 name = "secp256k1"
+version = "0.20.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97d03ceae636d0fed5bae6a7f4f664354c5f4fcedf6eef053fef17e49f837d0a"
+dependencies = [
+ "secp256k1-sys 0.4.2",
+ "serde",
+]
+
+[[package]]
+name = "secp256k1"
 version = "0.24.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff55dc09d460954e9ef2fa8a7ced735a964be9981fd50e870b2b3b0705e14964"
 dependencies = [
- "bitcoin_hashes",
+ "bitcoin_hashes 0.11.0",
  "rand 0.8.3",
- "secp256k1-sys",
+ "secp256k1-sys 0.6.1",
  "serde",
+]
+
+[[package]]
+name = "secp256k1-sys"
+version = "0.4.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "957da2573cde917463ece3570eab4a0b3f19de6f1646cde62e6fd3868f566036"
+dependencies = [
+ "cc",
 ]
 
 [[package]]
@@ -3318,7 +3444,7 @@ source = "git+https://github.com/delta1/secp256kfun?rev=b666877ce023b282919bc3c1
 dependencies = [
  "digest 0.10.5",
  "rand_core 0.6.2",
- "secp256k1",
+ "secp256k1 0.24.1",
  "serde",
  "subtle-ng",
 ]
@@ -3625,6 +3751,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "socks"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0c3dbbd9ae980613c6dd8e28a9407b50509d3803b57624d5dfe8315218cd58b"
+dependencies = [
+ "byteorder",
+ "libc",
+ "winapi",
+]
+
+[[package]]
 name = "soketto"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3857,9 +3994,10 @@ dependencies = [
  "atty",
  "backoff",
  "base64 0.13.1",
- "bdk",
+ "bdk 0.16.1",
+ "bdk 0.24.0",
  "big-bytes",
- "bitcoin",
+ "bitcoin 0.29.2",
  "bitcoin-harness",
  "bmrng",
  "comfy-table",
@@ -4103,10 +4241,11 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "tokio"
-version = "1.16.1"
+version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0c27a64b625de6d309e8c57716ba93021dccf1b3b5c97edd6d3dd2d2135afc0a"
+checksum = "b9d0183f6f6001549ab68f8c7585093bb732beefbcf6d23a10b9b95c73a1dd49"
 dependencies = [
+ "autocfg",
  "bytes",
  "libc",
  "memchr",
@@ -4763,6 +4902,15 @@ checksum = "f095d78192e208183081cc07bc5515ef55216397af48b873e5edcd72637fa1bd"
 dependencies = [
  "ring",
  "untrusted",
+]
+
+[[package]]
+name = "webpki-roots"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8eff4b7516a57307f9349c64bf34caa34b940b66fed4b2fb3136cb7386e5739"
+dependencies = [
+ "webpki 0.21.4",
 ]
 
 [[package]]
