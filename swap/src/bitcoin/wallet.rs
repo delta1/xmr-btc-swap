@@ -6,9 +6,8 @@ use ::bitcoin::Txid;
 use anyhow::{bail, Context, Result};
 use bdk::blockchain::{Blockchain, ElectrumBlockchain, GetTx};
 use bdk::database::BatchDatabase;
-use bdk::descriptor::Segwitv0;
 use bdk::electrum_client::{ElectrumApi, GetHistoryRes};
-use bdk::keys::DerivableKey;
+use bdk::sled::Tree;
 use bdk::wallet::export::FullyNodedExport;
 use bdk::wallet::AddressIndex;
 use bdk::{FeeRate, KeychainKind, SignOptions, SyncOptions};
@@ -34,7 +33,10 @@ const MAX_RELATIVE_TX_FEE: Decimal = dec!(0.03);
 const MAX_ABSOLUTE_TX_FEE: Decimal = dec!(100_000);
 const DUST_AMOUNT: u64 = 546;
 
-pub struct Wallet<D = bdk::sled::Tree, C = Client> {
+const WALLET: &str = "wallet";
+const WALLET_OLD: &str = "wallet-old";
+
+pub struct Wallet<D = Tree, C = Client> {
     client: Arc<Mutex<C>>,
     wallet: Arc<Mutex<bdk::Wallet<D>>>,
     finality_confirmations: u32,
@@ -45,76 +47,64 @@ pub struct Wallet<D = bdk::sled::Tree, C = Client> {
 impl Wallet {
     pub async fn new(
         electrum_rpc_url: Url,
-        wallet_dir: &Path,
-        key: ExtendedPrivKey,
+        data_dir: impl AsRef<Path>,
+        xprivkey: ExtendedPrivKey,
         env_config: env::Config,
         target_block: usize,
     ) -> Result<Self> {
-        let database = bdk::sled::open(wallet_dir)?.open_tree(SLED_TREE_NAME)?;
+        let data_dir = data_dir.as_ref();
+        let wallet_dir = data_dir.join(WALLET);
+        let database = bdk::sled::open(&wallet_dir)?.open_tree(SLED_TREE_NAME)?;
+        let network = env_config.bitcoin_network;
 
-        dbg!(&key);
-        let old_db = bdk016::sled::open(wallet_dir)?.open_tree(SLED_TREE_NAME)?;
-        let old_network = match env_config.bitcoin_network {
-            Network::Bitcoin => bdk016::bitcoin::Network::Bitcoin,
-            Network::Testnet => bdk016::bitcoin::Network::Testnet,
-            _ => unimplemented!(),
-        };
-        let old_key = bdk016::bitcoin::util::bip32::ExtendedPrivKey {
-            network: old_network,
-            depth: 0,
-            parent_fingerprint: Default::default(),
-            child_number: bdk016::bitcoin::util::bip32::ChildNumber::from_normal_idx(0)?,
-            private_key: bdk016::bitcoin::PrivateKey::from_slice(
-                key.private_key.as_ref(),
-                old_network,
-            )?,
-            chain_code: bdk016::bitcoin::util::bip32::ChainCode::from(
-                &key.chain_code.as_bytes()[..],
-            ),
+        // try create/open the bdk wallet
+        let wallet = match bdk::Wallet::new(
+            bdk::template::Bip84(xprivkey.clone(), KeychainKind::External),
+            Some(bdk::template::Bip84(xprivkey, KeychainKind::Internal)),
+            network,
+            database,
+        ) {
+            Ok(w) => w,
+            Err(e) if matches!(e, bdk::Error::ChecksumMismatch) => {
+                Self::migrate(data_dir, xprivkey, network)?
+            }
+            err => err?,
         };
 
-        dbg!(&old_key);
-        let old_wallet = bdk016::Wallet::new_offline(
-            bdk016::template::Bip84(old_key.clone(), bdk016::KeychainKind::External),
-            Some(bdk016::template::Bip84(
-                old_key.clone(),
-                bdk016::KeychainKind::Internal,
-            )),
-            old_network,
-            old_db,
+        let client = Client::new(electrum_rpc_url, env_config.bitcoin_sync_interval())?;
+
+        let network = wallet.network();
+
+        Ok(Self {
+            client: Arc::new(Mutex::new(client)),
+            wallet: Arc::new(Mutex::new(wallet)),
+            finality_confirmations: env_config.bitcoin_finality_confirmations,
+            network,
+            target_block,
+        })
+    }
+
+    /// todo: doc
+    fn migrate(
+        data_dir: &Path,
+        xprivkey: ExtendedPrivKey,
+        network: bitcoin::Network,
+    ) -> Result<bdk::Wallet<Tree>> {
+        let from = data_dir.join(WALLET);
+        let to = data_dir.join(WALLET_OLD);
+        std::fs::rename(from, to)?;
+
+        let wallet_dir = data_dir.join(WALLET);
+        let database = bdk::sled::open(&wallet_dir)?.open_tree(SLED_TREE_NAME)?;
+
+        let wallet = bdk::Wallet::new(
+            bdk::template::Bip84(xprivkey.clone(), KeychainKind::External),
+            Some(bdk::template::Bip84(xprivkey, KeychainKind::Internal)),
+            network,
+            database,
         )?;
 
-        dbg!(old_wallet);
-        panic!("we did it!");
-
-        // let wallet = match bdk::Wallet::new(
-        //     bdk::template::Bip84(key.clone(), KeychainKind::External),
-        //     Some(bdk::template::Bip84(key, KeychainKind::Internal)),
-        //     env_config.bitcoin_network,
-        //     database,
-        // ) {
-        //     Ok(w) => w,
-        //     Err(e) if matches!(e, bdk::Error::ChecksumMismatch) => {
-
-        //         let ext = old_wallet.get_descriptor_for_keychain(bdk016::KeychainKind::External);
-        //         let int = old_wallet.get_descriptor_for_keychain(bdk016::KeychainKind::Internal);
-
-        //         todo!("migrate descriptors?");
-        //     }
-        //     Err(_e) => panic!("no"),
-        // };
-
-        // let client = Client::new(electrum_rpc_url, env_config.bitcoin_sync_interval())?;
-
-        // let network = wallet.network();
-
-        // Ok(Self {
-        //     client: Arc::new(Mutex::new(client)),
-        //     wallet: Arc::new(Mutex::new(wallet)),
-        //     finality_confirmations: env_config.bitcoin_finality_confirmations,
-        //     network,
-        //     target_block,
-        // })
+        Ok(wallet)
     }
 
     /// Broadcast the given transaction to the network and emit a log statement
@@ -977,6 +967,8 @@ impl fmt::Display for ScriptStatus {
 mod tests {
     use super::*;
     use crate::bitcoin::{PublicKey, TxLock};
+    use crate::env::GetConfig;
+    use crate::seed::Seed;
     use crate::tracing_ext::capture_logs;
     use bitcoin::hashes::Hash;
     use proptest::prelude::*;
@@ -1191,6 +1183,24 @@ mod tests {
 
         assert!(amount.to_sat() > 0);
     }
+
+    // #[tokio::test]
+    // async fn temp() {
+    //     // let data_dir = Path::new("/tmp/data");
+    //     let data_dir = tempfile::tempdir().unwrap();
+    //     let path = format!("{}/wallet", data_dir.path().to_string_lossy());
+    //     let wallet_dir = Path::new(&path);
+    //     let electrum_rpc_url = DEFAULT_ELECTRUM_RPC_URL_TESTNET.parse().unwrap();
+    //     let seed = Seed::from_file_or_generate(data_dir.path()).unwrap();
+    //     let network = ::bitcoin::Network::Testnet;
+    //     let key = seed.derive_extended_private_key(network).unwrap();
+    //     let env_config = env::Testnet::get_config();
+    //     let target_block = 1;
+
+    //     // let wallet = Wallet::new(electrum_rpc_url, wallet_dir, key,
+    // env_config, target_block)     //     .await
+    //     //     .unwrap();
+    // }
 
     /// This test ensures that the relevant script output of the transaction
     /// created out of the PSBT is at index 0. This is important because
