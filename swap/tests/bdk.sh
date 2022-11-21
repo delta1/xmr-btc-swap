@@ -12,7 +12,6 @@ pushd bdk
 echo "download swap $VERSION"
 #
 curl -L "https://github.com/comit-network/xmr-btc-swap/releases/download/${VERSION}/swap_${VERSION}_Linux_x86_64.tar" | tar xv
-# cp /tmp/swap0.11.x ./swap
 
 echo "create testnet wallet with $VERSION"
 ./swap --testnet --data-base-dir . --debug balance || exit 1

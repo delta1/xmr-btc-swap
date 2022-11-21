@@ -57,9 +57,8 @@ impl Wallet {
         let database = bdk::sled::open(&wallet_dir)?.open_tree(SLED_TREE_NAME)?;
         let network = env_config.bitcoin_network;
 
-        // try create/open the bdk wallet
         let wallet = match bdk::Wallet::new(
-            bdk::template::Bip84(xprivkey.clone(), KeychainKind::External),
+            bdk::template::Bip84(xprivkey, KeychainKind::External),
             Some(bdk::template::Bip84(xprivkey, KeychainKind::Internal)),
             network,
             database,
@@ -967,9 +966,11 @@ impl fmt::Display for ScriptStatus {
 mod tests {
     use super::*;
     use crate::bitcoin::{PublicKey, TxLock};
+    use crate::cli::command::DEFAULT_ELECTRUM_RPC_URL_TESTNET;
     use crate::env::GetConfig;
     use crate::seed::Seed;
     use crate::tracing_ext::capture_logs;
+    use bdk016::bitcoin::util::bip32::ExtendedPrivKey;
     use bitcoin::hashes::Hash;
     use proptest::prelude::*;
     use tracing::level_filters::LevelFilter;
@@ -1184,23 +1185,46 @@ mod tests {
         assert!(amount.to_sat() > 0);
     }
 
-    // #[tokio::test]
-    // async fn temp() {
-    //     // let data_dir = Path::new("/tmp/data");
-    //     let data_dir = tempfile::tempdir().unwrap();
-    //     let path = format!("{}/wallet", data_dir.path().to_string_lossy());
-    //     let wallet_dir = Path::new(&path);
-    //     let electrum_rpc_url = DEFAULT_ELECTRUM_RPC_URL_TESTNET.parse().unwrap();
-    //     let seed = Seed::from_file_or_generate(data_dir.path()).unwrap();
-    //     let network = ::bitcoin::Network::Testnet;
-    //     let key = seed.derive_extended_private_key(network).unwrap();
-    //     let env_config = env::Testnet::get_config();
-    //     let target_block = 1;
+    #[tokio::test]
+    async fn wallet_migration() {
+        let data_dir = tempfile::tempdir().unwrap();
+        let electrum_rpc_url = DEFAULT_ELECTRUM_RPC_URL_TESTNET.parse().unwrap();
+        let seed = Seed::from_file_or_generate(data_dir.path()).unwrap();
+        let network = ::bitcoin::Network::Testnet;
+        let xprivkey = seed.derive_extended_private_key(network).unwrap();
+        let env_config = env::Testnet::get_config();
+        let target_block = 1;
 
-    //     // let wallet = Wallet::new(electrum_rpc_url, wallet_dir, key,
-    // env_config, target_block)     //     .await
-    //     //     .unwrap();
-    // }
+        // create a testnet wallet with bdk 0.16
+        let wallet_dir = data_dir.path().join(WALLET);
+        let database = bdk016::sled::open(&wallet_dir)
+            .unwrap()
+            .open_tree(SLED_TREE_NAME)
+            .unwrap();
+
+        let key = ExtendedPrivKey::from_str(&xprivkey.to_string()).unwrap();
+        let network = bdk016::bitcoin::Network::Testnet;
+        let wallet = bdk016::Wallet::new_offline(
+            bdk016::template::Bip84(key, bdk016::KeychainKind::External),
+            Some(bdk016::template::Bip84(key, bdk016::KeychainKind::Internal)),
+            network,
+            database,
+        )
+        .unwrap();
+        // assert something
+
+        // make sure it can be opened with the newer version
+        let wallet = Wallet::new(
+            electrum_rpc_url,
+            data_dir,
+            xprivkey,
+            env_config,
+            target_block,
+        )
+        .await
+        .unwrap();
+        // assert something
+    }
 
     /// This test ensures that the relevant script output of the transaction
     /// created out of the PSBT is at index 0. This is important because

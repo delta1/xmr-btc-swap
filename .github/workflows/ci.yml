@@ -28,11 +28,7 @@ jobs:
   #       run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   bdk-test:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest", "macos-latest", "windows-latest"]
-      fail-fast: false
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3.1.0
@@ -43,7 +39,6 @@ jobs:
         run: cargo build --bin swap
 
       - name: Run BDK regression script
-        shell: bash
         run: ./swap/tests/bdk.sh
 
   # build:
