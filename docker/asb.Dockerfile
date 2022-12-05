@@ -3,9 +3,8 @@
 # build
 FROM rust:1.62-slim-bullseye AS builder
 
-ENV DEBIAN_FRONTEND=noninteractive
 RUN update-ca-certificates
-RUN apt-get update && apt-get install -y wget autoconf pkg-config make gpg git apt-utils
+RUN apt-get update && apt-get install -y wget autoconf pkg-config make gpg git
 
 ENV USER=asb
 ENV UID=10001
@@ -24,7 +23,6 @@ RUN gpg --import binaryfate.asc
 RUN wget https://www.getmonero.org/downloads/hashes.txt
 RUN gpg --verify hashes.txt
 RUN wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.18.1.2.tar.bz2
-# RUN SHASUM=
 RUN test "$(grep monero-linux-x64 hashes.txt)" = "$(sha256sum monero-linux-x64-v0.18.1.2.tar.bz2)"
 RUN tar -avxf monero-linux-x64-v0.18.1.2.tar.bz2
 RUN cp monero-x86_64-linux-gnu-v0.18.1.2/monero-wallet-rpc /usr/local/bin
@@ -43,7 +41,7 @@ RUN rm -rf ~/.cargo || true
 
 ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN cargo fetch --verbose --locked
-RUN cargo build --verbose --release --locked --package swap --bin asb
+RUN cargo build --release --locked --package swap --bin asb
 
 # final container
 FROM debian:bullseye-slim

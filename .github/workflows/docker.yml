@@ -31,4 +31,4 @@ jobs:
         run: |
           cd docker
           make asb tag=ghcr.io/delta1/asb:latest
-          docker push ghcr/delta1/asb:latest
+          docker push ghcr.io/delta1/asb:latest
