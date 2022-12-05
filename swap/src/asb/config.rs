@@ -519,7 +519,7 @@ mod tests {
                 finality_confirmations: None,
                 network: monero::Network::Mainnet,
             },
-            tor: Default::default(),
+            tor: TorConf::default(),
             maker: Maker {
                 min_buy_btc: bitcoin::Amount::from_btc(DEFAULT_MIN_BUY_AMOUNT).unwrap(),
                 max_buy_btc: bitcoin::Amount::from_btc(DEFAULT_MAX_BUY_AMOUNT).unwrap(),

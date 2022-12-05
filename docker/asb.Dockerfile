@@ -1,10 +1,11 @@
 # syntax=docker/dockerfile:1
 
 # build
-FROM rust:1.59-slim-bullseye AS builder
+FROM rust:1.62-slim-bullseye AS builder
 
+ENV DEBIAN_FRONTEND=noninteractive
 RUN update-ca-certificates
-RUN apt update && apt install -y wget autoconf pkg-config make gpg
+RUN apt-get update && apt-get install -y wget autoconf pkg-config make gpg git apt-utils
 
 ENV USER=asb
 ENV UID=10001
@@ -17,25 +18,16 @@ RUN adduser \
     --uid "${UID}" \
     "${USER}"
 
-WORKDIR /usr/local/src
-RUN wget https://github.com/jpmens/jo/releases/download/1.6/jo-1.6.tar.gz
-RUN tar -avxf jo-1.6.tar.gz
-
-WORKDIR /usr/local/src/jo-1.6
-RUN autoreconf -i
-RUN ./configure
-RUN make && make install
-
 WORKDIR /tmp
 RUN wget https://raw.githubusercontent.com/monero-project/monero/master/utils/gpg_keys/binaryfate.asc
 RUN gpg --import binaryfate.asc
 RUN wget https://www.getmonero.org/downloads/hashes.txt
 RUN gpg --verify hashes.txt
-RUN wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.17.3.0.tar.bz2
-RUN SHASUM=
-RUN test "$(grep monero-linux-x64 hashes.txt)" = "$(sha256sum monero-linux-x64-v0.17.3.0.tar.bz2)"
-RUN tar -avxf monero-linux-x64-v0.17.3.0.tar.bz2
-RUN cp monero-x86_64-linux-gnu-v0.17.3.0/monero-wallet-rpc /usr/local/bin
+RUN wget https://downloads.getmonero.org/cli/monero-linux-x64-v0.18.1.2.tar.bz2
+# RUN SHASUM=
+RUN test "$(grep monero-linux-x64 hashes.txt)" = "$(sha256sum monero-linux-x64-v0.18.1.2.tar.bz2)"
+RUN tar -avxf monero-linux-x64-v0.18.1.2.tar.bz2
+RUN cp monero-x86_64-linux-gnu-v0.18.1.2/monero-wallet-rpc /usr/local/bin
 
 WORKDIR /asb
 
@@ -47,7 +39,11 @@ COPY swap/ swap
 COPY Cargo.toml .
 COPY Cargo.lock .
 
-RUN cargo build --release --locked --package swap --bin asb
+RUN rm -rf ~/.cargo || true
+
+ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
+RUN cargo fetch --verbose --locked
+RUN cargo build --verbose --release --locked --package swap --bin asb
 
 # final container
 FROM debian:bullseye-slim
@@ -61,9 +57,9 @@ RUN chown -R asb:asb /etc/asb /home/asb
 
 USER asb:asb
 
-COPY --from=builder /usr/local/bin/jo /usr/local/bin
 COPY --from=builder /usr/local/bin/monero-wallet-rpc /usr/local/bin
 COPY --from=builder /asb/target/release/asb /usr/local/bin
+COPY docker/config.toml /home/asb/config.toml
 COPY docker/asb.sh /usr/local/bin
 
 ENTRYPOINT ["/usr/local/bin/asb.sh"]

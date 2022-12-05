@@ -1,0 +1,26 @@
+[data]
+dir = ""
+
+[network]
+listen = []
+rendezvous_point = ""
+external_addresses = []
+
+[bitcoin]
+electrum_rpc_url = ""
+target_block = 1
+network = "Testnet"
+
+[monero]
+wallet_rpc_url = ""
+network = "Stagenet"
+
+[tor]
+control_port = 9051
+socks5_port = 9050
+
+[maker]
+min_buy_btc = 0.002
+max_buy_btc = 0.02
+ask_spread = 0.01
+price_ticker_ws_url = ""

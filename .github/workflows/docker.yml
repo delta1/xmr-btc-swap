@@ -1,0 +1,34 @@
+name: Docker
+
+on:
+  push:
+    branches:
+      - "docker-asb"
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3.1.0
+
+      - uses: Swatinem/rust-cache@v2.2.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        run: |
+          cd docker
+          make asb tag=ghcr.io/delta1/asb:latest
+          docker push ghcr/delta1/asb:latest

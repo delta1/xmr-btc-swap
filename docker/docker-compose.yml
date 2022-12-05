@@ -7,7 +7,7 @@ services:
         "asb",
         "--testnet",
         "--config",
-        "/etc/asb/config.json",
+        "/home/asb/config.toml",
         "start"
       ]
     user: "asb:asb"
@@ -16,20 +16,37 @@ services:
     stdin_open: true
     tty: true
     environment:
-      DATA_DIR:
-      NETWORK_LISTEN:
-      NETWORK_RENDEZVOUS_POINT:
-      NETWORK_EXTERNAL_ADDRESSES:
-      BITCOIN_ELECTRUM_RPC_URL:
-      BITCOIN_TARGET_BLOCK:
-      BITCOIN_FINALITY_CONFIRMATIONS:
-      BITCOIN_NETWORK: Testnet
-      MONERO_WALLET_RPC_URL:
-      MONERO_FINALITY_CONFIRMATIONS:
-      MONERO_NETWORK: Stagenet
-      TOR_CONTROL_PORT:
-      TOR_SOCKS5_PORT:
-      MAKER_MIN_BUY_BTC:
-      MAKER_MAX_BUY_BTC:
-      MAKER_ASK_SPREAD:
-      MAKER_PRICE_TICKER_WS_URL:
+      ASB__DATA__DIR: /home/asb/data
+      ASB__NETWORK__LISTEN: /ip4/0.0.0.0/tcp/9939,/ip4/0.0.0.0/tcp/9940/ws
+      ASB__NETWORK__RENDEZVOUS_POINT: /dns4/discover.unstoppableswap.net/tcp/8888/p2p/12D3KooWA6cnqJpVnreBVnoro8midDL9Lpzmg8oJPoAGi7YYaamE
+      ASB__NETWORK__EXTERNAL_ADDRESSES:
+      ASB__BITCOIN__ELECTRUM_RPC_URL: ssl://electrum.blockstream.info:60002
+      ASB__BITCOIN__TARGET_BLOCK: 1
+      ASB__BITCOIN__FINALITY_CONFIRMATIONS:
+      ASB__BITCOIN__NETWORK: Testnet
+      ASB__MONERO__WALLET_RPC_URL: http://127.0.0.1:18083/json_rpc
+      ASB__MONERO__FINALITY_CONFIRMATIONS:
+      ASB__MONERO__NETWORK: Stagenet
+      ASB__TOR__CONTROL_PORT: 9051
+      ASB__TOR__SOCKS5_PORT: 9050
+      ASB__MAKER__MIN_BUY_BTC: 0.002
+      ASB__MAKER__MAX_BUY_BTC: 0.02
+      ASB__MAKER__ASK_SPREAD: 0.02
+      ASB__MAKER__PRICE_TICKER_WS_URL: wss://ws.kraken.com
+      # ASB__DATA__DIR: /home/asb/data
+      # ASB__NETWORK__LISTEN: /ip4/0.0.0.0/tcp/9939,/ip4/0.0.0.0/tcp/9940/ws
+      # ASB__NETWORK__RENDEZVOUS_POINT: /dns4/discover.unstoppableswap.net/tcp/8888/p2p/12D3KooWA6cnqJpVnreBVnoro8midDL9Lpzmg8oJPoAGi7YYaamE
+      # ASB__NETWORK__EXTERNAL_ADDRESSES:
+      # ASB__BITCOIN__ELECTRUM_RPC_URL: ssl://blockstream.info:700
+      # ASB__BITCOIN__TARGET_BLOCK: 1
+      # ASB__BITCOIN__FINALITY_CONFIRMATIONS:
+      # ASB__BITCOIN__NETWORK: Mainnet
+      # ASB__MONERO__WALLET_RPC_URL: http://127.0.0.1:18083/json_rpc
+      # ASB__MONERO__FINALITY_CONFIRMATIONS:
+      # ASB__MONERO__NETWORK: Mainnet
+      # ASB__TOR__CONTROL_PORT: 9051
+      # ASB__TOR__SOCKS5_PORT: 9050
+      # ASB__MAKER__MIN_BUY_BTC: 0.002
+      # ASB__MAKER__MAX_BUY_BTC: 0.02
+      # ASB__MAKER__ASK_SPREAD: 0.02
+      # ASB__MAKER__PRICE_TICKER_WS_URL: wss://ws.kraken.com
