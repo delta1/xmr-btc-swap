@@ -7,17 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2022-08-11
+
 ### Changed
 
+- Update from Monero v0.17.2.0 to Monero v0.18.0.0
 - Change Monero nodes to [Rino tool nodes](https://community.rino.io/nodes.html)
-- Revert logs to use rfc3339 local time formatting.
 - Always write logs as JSON to files
+- Change to UTC time for log messages, due to a bug causing no logging at all to be printed (linux/macos), and an [unsoundness issue](https://docs.rs/tracing-subscriber/latest/tracing_subscriber/fmt/time/struct.LocalTime.html) with local time in [the time crate](https://github.com/time-rs/time/issues/293#issuecomment-748151025)
+- Fix potential integer overflow in ASB when calculating maximum Bitcoin amount for Monero balance
+- Reduce Monero locking transaction fee amount from 0.000030 to 0.000016 XMR, which is still double the current median fee as reported at [monero.how](https://www.monero.how/monero-transaction-fees)
 
 ### Added
 
 - Adjust quote based on Bitcoin balance.
-  If the max_buy_btc in the ASB config is higher than the available balance to trade it will return the max available balance discounting the locking fees for monero, in the case the balance is lower than the min_buy_btc config it will return 0 to the CLI. If the ASB returns a quote of 0 the CLI will not allow you continue with a trade.
+  If the max_buy_btc in the ASB config is higher than the available balance to trade, it will return the max available balance discounting the Monero locking fees. In the case the balance is lower than the min_buy_btc config it will return 0 to the CLI. If the ASB returns a quote of 0 the CLI will not allow you continue with a trade.
 - Reduce required confirmations for Bitcoin transactions from 2 to 1
+- Both the ASB and CLI now support the [Identify](https://github.com/libp2p/specs/blob/master/identify/README.md) protocol. This makes its version and network (testnet/mainnet) avaliable to others
+- Display minimum BTC deposit required to cover the minimum quantity plus fee in the Swap CLI
+- Swap CLI will check its monero-wallet-rpc version and remove it if it's older than Fluorine Fermi (0.18)
 
 ## [0.10.2] - 2021-12-25
 
@@ -312,7 +320,8 @@ It is possible to migrate critical data from the old db to the sqlite but there 
 - Fixed an issue where Alice would not verify if Bob's Bitcoin lock transaction is semantically correct, i.e. pays the agreed upon amount to an output owned by both of them.
   Fixing this required a **breaking change** on the network layer and hence old versions are not compatible with this version.
 
-[unreleased]: https://github.com/comit-network/xmr-btc-swap/compare/0.10.2...HEAD
+[Unreleased]: https://github.com/comit-network/xmr-btc-swap/compare/0.11.0...HEAD
+[0.11.0]: https://github.com/comit-network/xmr-btc-swap/compare/0.10.2...0.11.0
 [0.10.2]: https://github.com/comit-network/xmr-btc-swap/compare/0.10.1...0.10.2
 [0.10.1]: https://github.com/comit-network/xmr-btc-swap/compare/0.10.0...0.10.1
 [0.10.0]: https://github.com/comit-network/xmr-btc-swap/compare/0.9.0...0.10.0

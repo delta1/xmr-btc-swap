@@ -26,6 +26,7 @@ use std::time::Duration;
 use swap::bitcoin::TxLock;
 use swap::cli::command::{parse_args_and_apply_defaults, Arguments, Command, ParseResult};
 use swap::cli::{list_sellers, EventLoop, SellerStatus};
+use swap::common::check_latest_version;
 use swap::database::open_db;
 use swap::env::Config;
 use swap::libp2p_ext::MultiAddrExt;
@@ -54,6 +55,10 @@ async fn main() -> Result<()> {
         }
     };
 
+    if let Err(e) = check_latest_version(env!("CARGO_PKG_VERSION")).await {
+        eprintln!("{}", e);
+    }
+
     match cmd {
         Command::BuyXmr {
             seller,
@@ -63,10 +68,12 @@ async fn main() -> Result<()> {
             monero_receive_address,
             monero_daemon_address,
             tor_socks5_port,
+            namespace,
         } => {
             let swap_id = Uuid::new_v4();
 
             cli::tracing::init(debug, json, data_dir.join("logs"), Some(swap_id))?;
+
             let db = open_db(data_dir.join("sqlite")).await?;
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
@@ -87,7 +94,12 @@ async fn main() -> Result<()> {
                 .context("Seller address must contain peer ID")?;
             db.insert_address(seller_peer_id, seller.clone()).await?;
 
-            let behaviour = cli::Behaviour::new(seller_peer_id, env_config, bitcoin_wallet.clone());
+            let behaviour = cli::Behaviour::new(
+                seller_peer_id,
+                env_config,
+                bitcoin_wallet.clone(),
+                (seed.derive_libp2p_identity(), namespace),
+            );
             let mut swarm =
                 swarm::cli(seed.derive_libp2p_identity(), tor_socks5_port, behaviour).await?;
             swarm.behaviour_mut().add_address(seller_peer_id, seller);
@@ -99,6 +111,8 @@ async fn main() -> Result<()> {
             let event_loop = tokio::spawn(event_loop.run());
 
             let max_givable = || bitcoin_wallet.max_giveable(TxLock::script_size());
+            let estimate_fee = |amount| bitcoin_wallet.estimate_fee(TxLock::weight(), amount);
+
             let (amount, fees) = match determine_btc_to_swap(
                 json,
                 event_loop_handle.request_quote(),
@@ -106,6 +120,7 @@ async fn main() -> Result<()> {
                 || bitcoin_wallet.balance(),
                 max_givable,
                 || bitcoin_wallet.sync(),
+                estimate_fee,
             )
             .await
             {
@@ -187,6 +202,7 @@ async fn main() -> Result<()> {
             address,
         } => {
             cli::tracing::init(debug, json, data_dir.join("logs"), None)?;
+
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
             let bitcoin_wallet = init_bitcoin_wallet(
@@ -220,6 +236,7 @@ async fn main() -> Result<()> {
             bitcoin_target_block,
         } => {
             cli::tracing::init(debug, json, data_dir.join("logs"), None)?;
+
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
             let bitcoin_wallet = init_bitcoin_wallet(
@@ -243,8 +260,10 @@ async fn main() -> Result<()> {
             bitcoin_target_block,
             monero_daemon_address,
             tor_socks5_port,
+            namespace,
         } => {
             cli::tracing::init(debug, json, data_dir.join("logs"), Some(swap_id))?;
+
             let db = open_db(data_dir.join("sqlite")).await?;
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
@@ -264,7 +283,12 @@ async fn main() -> Result<()> {
             let seller_peer_id = db.get_peer_id(swap_id).await?;
             let seller_addresses = db.get_addresses(seller_peer_id).await?;
 
-            let behaviour = cli::Behaviour::new(seller_peer_id, env_config, bitcoin_wallet.clone());
+            let behaviour = cli::Behaviour::new(
+                seller_peer_id,
+                env_config,
+                bitcoin_wallet.clone(),
+                (seed.derive_libp2p_identity(), namespace),
+            );
             let mut swarm =
                 swarm::cli(seed.derive_libp2p_identity(), tor_socks5_port, behaviour).await?;
             let our_peer_id = swarm.local_peer_id();
@@ -306,6 +330,7 @@ async fn main() -> Result<()> {
             bitcoin_target_block,
         } => {
             cli::tracing::init(debug, json, data_dir.join("logs"), Some(swap_id))?;
+
             let db = open_db(data_dir.join("sqlite")).await?;
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
@@ -328,6 +353,7 @@ async fn main() -> Result<()> {
             bitcoin_target_block,
         } => {
             cli::tracing::init(debug, json, data_dir.join("logs"), Some(swap_id))?;
+
             let db = open_db(data_dir.join("sqlite")).await?;
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
@@ -353,6 +379,7 @@ async fn main() -> Result<()> {
                 .context("Rendezvous node address must contain peer ID")?;
 
             cli::tracing::init(debug, json, data_dir.join("logs"), None)?;
+
             let seed = Seed::from_file_or_generate(data_dir.as_path())
                 .context("Failed to read in seed file")?;
             let identity = seed.derive_libp2p_identity();
@@ -447,6 +474,8 @@ async fn main() -> Result<()> {
             tracing::info!(descriptor=%wallet_export.to_string(), "Exported bitcoin wallet");
         }
         Command::MoneroRecovery { swap_id } => {
+            cli::tracing::init(debug, json, data_dir.join("logs"), Some(swap_id))?;
+
             let db = open_db(data_dir.join("sqlite")).await?;
 
             let swap_state: BobState = db.get_state(swap_id).await?.try_into()?;
@@ -494,12 +523,12 @@ async fn init_bitcoin_wallet(
     env_config: Config,
     bitcoin_target_block: usize,
 ) -> Result<bitcoin::Wallet> {
-    let wallet_dir = data_dir.join("wallet");
+    let xprivkey = seed.derive_extended_private_key(env_config.bitcoin_network)?;
 
     let wallet = bitcoin::Wallet::new(
         electrum_rpc_url.clone(),
-        &wallet_dir,
-        seed.derive_extended_private_key(env_config.bitcoin_network)?,
+        data_dir,
+        xprivkey,
         env_config,
         bitcoin_target_block,
     )
@@ -546,13 +575,14 @@ fn qr_code(value: &impl ToString) -> Result<String> {
     Ok(qr_code)
 }
 
-async fn determine_btc_to_swap<FB, TB, FMG, TMG, FS, TS>(
+async fn determine_btc_to_swap<FB, TB, FMG, TMG, FS, TS, FFE, TFE>(
     json: bool,
     bid_quote: impl Future<Output = Result<BidQuote>>,
     get_new_address: impl Future<Output = Result<bitcoin::Address>>,
     balance: FB,
     max_giveable_fn: FMG,
     sync: FS,
+    estimate_fee: FFE,
 ) -> Result<(bitcoin::Amount, bitcoin::Amount)>
 where
     TB: Future<Output = Result<bitcoin::Amount>>,
@@ -561,6 +591,8 @@ where
     FMG: Fn() -> TMG,
     TS: Future<Output = Result<()>>,
     FS: Fn() -> TS,
+    FFE: Fn(bitcoin::Amount) -> TFE,
+    TFE: Future<Output = Result<bitcoin::Amount>>,
 {
     tracing::debug!("Requesting quote");
     let bid_quote = bid_quote.await?;
@@ -588,8 +620,17 @@ where
         }
 
         loop {
+            let min_outstanding = bid_quote.min_quantity - max_giveable;
+            let min_fee = estimate_fee(min_outstanding).await?;
+            let min_deposit = min_outstanding + min_fee;
+
+            tracing::info!(
+                "Deposit at least {} to cover the min quantity with fee!",
+                min_deposit
+            );
             tracing::info!(
                 %deposit_address,
+                %min_deposit,
                 %max_giveable,
                 %minimum_amount,
                 %maximum_amount,
@@ -621,9 +662,7 @@ where
 
     let balance = balance().await?;
     let fees = balance - max_giveable;
-
     let max_accepted = bid_quote.max_quantity;
-
     let btc_swap_amount = min(max_giveable, max_accepted);
 
     Ok((btc_swap_amount, fees))
@@ -656,6 +695,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -667,7 +707,8 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00000000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
+ INFO swap: Deposit at least 0.00001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.00001000 BTC max_giveable=0.00000000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
  INFO swap: Received Bitcoin new_balance=0.00100000 BTC max_giveable=0.00090000 BTC
 "
         );
@@ -691,6 +732,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -702,14 +744,15 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00000000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
+ INFO swap: Deposit at least 0.00001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.00001000 BTC max_giveable=0.00000000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
  INFO swap: Received Bitcoin new_balance=0.10010000 BTC max_giveable=0.10000000 BTC
 "
         );
     }
 
     #[tokio::test]
-    async fn given_initial_balance_below_max_quantity_swaps_max_givable() {
+    async fn given_initial_balance_below_max_quantity_swaps_max_giveable() {
         let writer = capture_logs(LevelFilter::INFO);
         let givable = Arc::new(Mutex::new(MaxGiveable::new(vec![
             Amount::from_btc(0.0049).unwrap(),
@@ -726,6 +769,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -736,8 +780,7 @@ mod tests {
         assert_eq!((amount, fees), (expected_amount, expected_fees));
         assert_eq!(
             writer.captured(),
-            r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
-"
+            " INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC\n"
         );
     }
 
@@ -759,6 +802,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -769,8 +813,7 @@ mod tests {
         assert_eq!((amount, fees), (expected_amount, expected_fees));
         assert_eq!(
             writer.captured(),
-            r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC
-"
+            " INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.00000000 BTC maximum_amount=0.01000000 BTC\n"
         );
     }
 
@@ -792,6 +835,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -803,7 +847,8 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00000000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
+ INFO swap: Deposit at least 0.01001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.01001000 BTC max_giveable=0.00000000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
  INFO swap: Received Bitcoin new_balance=0.01010000 BTC max_giveable=0.01000000 BTC
 "
         );
@@ -827,6 +872,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .unwrap();
@@ -838,7 +884,8 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00010000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
+ INFO swap: Deposit at least 0.00991000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.00991000 BTC max_giveable=0.00010000 BTC minimum_amount=0.01000000 BTC maximum_amount=184467440737.09551615 BTC
  INFO swap: Received Bitcoin new_balance=0.01010000 BTC max_giveable=0.01000000 BTC
 "
         );
@@ -867,6 +914,7 @@ mod tests {
                     result.give()
                 },
                 || async { Ok(()) },
+                |_| async { Ok(Amount::from_sat(1000)) },
             ),
         )
         .await
@@ -876,10 +924,12 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
+ INFO swap: Deposit at least 0.10001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.10001000 BTC max_giveable=0.00000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
  INFO swap: Received Bitcoin new_balance=0.01010000 BTC max_giveable=0.01000000 BTC
  INFO swap: Deposited amount is less than `min_quantity`
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.01000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
+ INFO swap: Deposit at least 0.09001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.09001000 BTC max_giveable=0.01000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
 "
         );
     }
@@ -913,6 +963,7 @@ mod tests {
                     result.give()
                 },
                 || async { Ok(()) },
+                |_| async { Ok(Amount::from_sat(1000)) },
             ),
         )
         .await
@@ -922,14 +973,15 @@ mod tests {
         assert_eq!(
             writer.captured(),
             r" INFO swap: Received quote price=0.00100000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
- INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 max_giveable=0.00000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
+ INFO swap: Deposit at least 0.10001000 BTC to cover the min quantity with fee!
+ INFO swap: Waiting for Bitcoin deposit deposit_address=1PdfytjS7C8wwd9Lq5o4x9aXA2YRqaCpH6 min_deposit=0.10001000 BTC max_giveable=0.00000000 BTC minimum_amount=0.10000000 BTC maximum_amount=184467440737.09551615 BTC
  INFO swap: Received Bitcoin new_balance=0.21000000 BTC max_giveable=0.20000000 BTC
 "
         );
     }
 
     #[tokio::test]
-    async fn given_bid_quote_max_amount_0_return_errorq() {
+    async fn given_bid_quote_max_amount_0_return_error() {
         let givable = Arc::new(Mutex::new(MaxGiveable::new(vec![
             Amount::from_btc(0.0001).unwrap(),
             Amount::from_btc(0.01).unwrap(),
@@ -945,6 +997,7 @@ mod tests {
                 result.give()
             },
             || async { Ok(()) },
+            |_| async { Ok(Amount::from_sat(1000)) },
         )
         .await
         .err()

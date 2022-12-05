@@ -3,10 +3,12 @@ use crate::bitcoin::wallet::Watchable;
 use crate::bitcoin::{
     build_shared_output_descriptor, Address, Amount, BlockHeight, PublicKey, Transaction, TxLock,
 };
-use ::bitcoin::util::bip143::SigHashCache;
-use ::bitcoin::{OutPoint, Script, SigHash, SigHashType, TxIn, TxOut, Txid};
+use ::bitcoin::util::sighash::SighashCache;
+use ::bitcoin::{
+    EcdsaSighashType, OutPoint, PackedLockTime, Script, Sequence, Sighash, TxIn, TxOut, Txid,
+};
 use anyhow::Result;
-use bdk::miniscript::{Descriptor, DescriptorTrait};
+use bdk::miniscript::Descriptor;
 use ecdsa_fun::Signature;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
@@ -91,7 +93,7 @@ impl PartialEq<PunishTimelock> for u32 {
 #[derive(Debug)]
 pub struct TxCancel {
     inner: Transaction,
-    digest: SigHash,
+    digest: Sighash,
     pub(in crate::bitcoin) output_descriptor: Descriptor<::bitcoin::PublicKey>,
     lock_output_descriptor: Descriptor<::bitcoin::PublicKey>,
 }
@@ -109,28 +111,30 @@ impl TxCancel {
         let tx_in = TxIn {
             previous_output: tx_lock.as_outpoint(),
             script_sig: Default::default(),
-            sequence: cancel_timelock.0,
-            witness: Vec::new(),
+            sequence: Sequence(cancel_timelock.0),
+            witness: Default::default(),
         };
 
         let tx_out = TxOut {
-            value: tx_lock.lock_amount().as_sat() - spending_fee.as_sat(),
+            value: tx_lock.lock_amount().to_sat() - spending_fee.to_sat(),
             script_pubkey: cancel_output_descriptor.script_pubkey(),
         };
 
         let transaction = Transaction {
             version: 2,
-            lock_time: 0,
+            lock_time: PackedLockTime(0),
             input: vec![tx_in],
             output: vec![tx_out],
         };
 
-        let digest = SigHashCache::new(&transaction).signature_hash(
-            0, // Only one input: lock_input (lock transaction)
-            &tx_lock.output_descriptor.script_code(),
-            tx_lock.lock_amount().as_sat(),
-            SigHashType::All,
-        );
+        let digest = SighashCache::new(&transaction)
+            .segwit_signature_hash(
+                0, // Only one input: lock_input (lock transaction)
+                &tx_lock.output_descriptor.script_code().expect("scriptcode"),
+                tx_lock.lock_amount().to_sat(),
+                EcdsaSighashType::All,
+            )
+            .expect("sighash");
 
         Self {
             inner: transaction,
@@ -144,7 +148,7 @@ impl TxCancel {
         self.inner.txid()
     }
 
-    pub fn digest(&self) -> SigHash {
+    pub fn digest(&self) -> Sighash {
         self.digest
     }
 
@@ -198,16 +202,22 @@ impl TxCancel {
 
             let A = ::bitcoin::PublicKey {
                 compressed: true,
-                key: A.0.into(),
+                inner: A.0.into(),
             };
             let B = ::bitcoin::PublicKey {
                 compressed: true,
-                key: B.0.into(),
+                inner: B.0.into(),
             };
 
             // The order in which these are inserted doesn't matter
-            satisfier.insert(A, (sig_a.into(), ::bitcoin::SigHashType::All));
-            satisfier.insert(B, (sig_b.into(), ::bitcoin::SigHashType::All));
+            satisfier.insert(A, ::bitcoin::EcdsaSig {
+                sig: sig_a.into(),
+                hash_ty: EcdsaSighashType::All,
+            });
+            satisfier.insert(B, ::bitcoin::EcdsaSig {
+                sig: sig_b.into(),
+                hash_ty: EcdsaSighashType::All,
+            });
 
             satisfier
         };
@@ -227,21 +237,22 @@ impl TxCancel {
     ) -> Transaction {
         let previous_output = self.as_outpoint();
 
+        let sequence = Sequence(sequence.map(|seq| seq.0).unwrap_or(0xFFFF_FFFF));
         let tx_in = TxIn {
             previous_output,
             script_sig: Default::default(),
-            sequence: sequence.map(|seq| seq.0).unwrap_or(0xFFFF_FFFF),
-            witness: Vec::new(),
+            sequence,
+            witness: Default::default(),
         };
 
         let tx_out = TxOut {
-            value: self.amount().as_sat() - spending_fee.as_sat(),
+            value: self.amount().to_sat() - spending_fee.to_sat(),
             script_pubkey: spend_address.script_pubkey(),
         };
 
         Transaction {
             version: 2,
-            lock_time: 0,
+            lock_time: PackedLockTime(0),
             input: vec![tx_in],
             output: vec![tx_out],
         }

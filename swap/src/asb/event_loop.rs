@@ -176,7 +176,7 @@ where
                             let _ = responder.respond(wallet_snapshot);
                         }
                         SwarmEvent::Behaviour(OutEvent::SwapSetupCompleted{peer_id, swap_id, state3}) => {
-                            let _ = self.handle_execution_setup_done(peer_id, swap_id, state3).await;
+                            self.handle_execution_setup_done(peer_id, swap_id, state3).await;
                         }
                         SwarmEvent::Behaviour(OutEvent::SwapDeclined { peer, error }) => {
                             tracing::warn!(%peer, "Ignoring spot price request: {}", error);
@@ -326,11 +326,13 @@ where
             .ask()
             .context("Failed to compute asking price")?;
 
-        let max_bitcoin_for_monero = self
-            .monero_wallet
-            .get_balance()
-            .await?
-            .max_bitcoin_for_price(ask_price);
+        let xmr = self.monero_wallet.get_balance().await?;
+
+        let max_bitcoin_for_monero = xmr.max_bitcoin_for_price(ask_price).ok_or_else(|| {
+            anyhow::anyhow!("Bitcoin price ({}) x Monero ({}) overflow", ask_price, xmr)
+        })?;
+
+        tracing::debug!(%ask_price, %xmr, %max_bitcoin_for_monero);
 
         if min_buy > max_bitcoin_for_monero {
             tracing::warn!(

@@ -29,6 +29,7 @@ use swap::asb::config::{
     initial_setup, query_user_for_initial_config, read_config, Config, ConfigNotInitialized,
 };
 use swap::asb::{cancel, punish, redeem, refund, safely_abort, EventLoop, Finality, KrakenRate};
+use swap::common::check_latest_version;
 use swap::database::open_db;
 use swap::monero::Amount;
 use swap::network::rendezvous::XmrBtcNamespace;
@@ -67,6 +68,10 @@ async fn main() -> Result<()> {
             bail!(e);
         }
     };
+
+    if let Err(e) = check_latest_version(env!("CARGO_PKG_VERSION")).await {
+        eprintln!("{}", e);
+    }
 
     asb::tracing::init(LevelFilter::DEBUG, json, !disable_timestamp).expect("initialize tracing");
 
@@ -136,6 +141,8 @@ async fn main() -> Result<()> {
             };
 
             let kraken_rate = KrakenRate::new(config.maker.ask_spread, kraken_price_updates);
+            let namespace = XmrBtcNamespace::from_is_testnet(testnet);
+
             let mut swarm = swarm::asb(
                 &seed,
                 config.maker.min_buy_btc,
@@ -143,16 +150,8 @@ async fn main() -> Result<()> {
                 kraken_rate.clone(),
                 resume_only,
                 env_config,
-                config.network.rendezvous_point.map(|rendezvous_point| {
-                    (
-                        rendezvous_point,
-                        if testnet {
-                            XmrBtcNamespace::Testnet
-                        } else {
-                            XmrBtcNamespace::Mainnet
-                        },
-                    )
-                }),
+                namespace,
+                config.network.rendezvous_point,
             )?;
 
             for listen in config.network.listen.clone() {
@@ -313,11 +312,10 @@ async fn init_bitcoin_wallet(
     env_config: swap::env::Config,
 ) -> Result<bitcoin::Wallet> {
     tracing::debug!("Opening Bitcoin wallet");
-    let wallet_dir = config.data.dir.join("wallet");
-
+    let data_dir = &config.data.dir;
     let wallet = bitcoin::Wallet::new(
         config.bitcoin.electrum_rpc_url.clone(),
-        &wallet_dir,
+        data_dir,
         seed.derive_extended_private_key(env_config.bitcoin_network)?,
         env_config,
         config.bitcoin.target_block,

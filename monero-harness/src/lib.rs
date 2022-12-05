@@ -117,11 +117,12 @@ impl<'c> Monero {
         let miner_wallet = self.wallet("miner")?;
         let miner_address = miner_wallet.address().await?.address;
 
-        // generate the first 70 as bulk
+        // generate the first 120 as bulk
+        let amount_of_blocks = 120;
         let monerod = &self.monerod;
         let res = monerod
             .client()
-            .generateblocks(70, miner_address.clone())
+            .generateblocks(amount_of_blocks, miner_address.clone())
             .await?;
         tracing::info!("Generated {:?} blocks", res.blocks.len());
         miner_wallet.refresh().await?;
@@ -295,7 +296,7 @@ impl<'c> MoneroWalletRpc {
 
     /// Sends amount to address
     pub async fn transfer(&self, address: &str, amount: u64) -> Result<Transfer> {
-        Ok(self.client().transfer_single(0, amount, address).await?)
+        self.client().transfer_single(0, amount, address).await
     }
 
     pub async fn address(&self) -> Result<GetAddress> {
