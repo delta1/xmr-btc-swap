@@ -16,6 +16,7 @@ RUN adduser \
     --shell "/bin/bash" \
     --uid "${UID}" \
     "${USER}"
+RUN usermod -aG debian-tor asb
 
 WORKDIR /tmp
 RUN wget https://raw.githubusercontent.com/monero-project/monero/master/utils/gpg_keys/binaryfate.asc
@@ -45,6 +46,8 @@ RUN cargo build --release --locked --package swap --bin asb
 
 # run
 FROM debian:bullseye-slim
+RUN apt-get update && apt-get install -y tor
+RUN service tor start
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group

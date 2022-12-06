@@ -126,17 +126,17 @@ async fn main() -> Result<()> {
             // setup Tor hidden services
             let tor_client =
                 tor::Client::new(config.tor.socks5_port).with_control_port(config.tor.control_port);
-            let _ac = match tor_client.assert_tor_running().await {
+            let onion_addresses = match tor_client.assert_tor_running().await {
                 Ok(_) => {
                     tracing::info!("Setting up Tor hidden service");
-                    let ac =
+                    let (_, onion_addrs) =
                         register_tor_services(config.network.clone().listen, tor_client, &seed)
                             .await?;
-                    Some(ac)
+                    onion_addrs
                 }
                 Err(_) => {
                     tracing::warn!("Tor not found. Running on clear net");
-                    None
+                    Vec::new()
                 }
             };
 
@@ -159,7 +159,12 @@ async fn main() -> Result<()> {
                     .with_context(|| format!("Failed to listen on network interface {}", listen))?;
             }
 
-            tracing::info!(peer_id = %swarm.local_peer_id(), "Network layer initialized");
+            let peer_id = swarm.local_peer_id();
+            tracing::info!(%peer_id, "Network layer initialized");
+            for onion in onion_addresses {
+                let onion_service_addr: Multiaddr = format!("{}/p2p/{}", onion, peer_id).parse()?;
+                tracing::info!(%onion_service_addr);
+            }
 
             for external_address in config.network.external_addresses {
                 let _ = Swarm::add_external_address(
@@ -323,6 +328,7 @@ async fn init_bitcoin_wallet(
     .await
     .context("Failed to initialize Bitcoin wallet")?;
 
+    tracing::debug!("Syncing Bitcoin wallet");
     wallet.sync().await?;
 
     Ok(wallet)
@@ -349,7 +355,7 @@ async fn register_tor_services(
     networks: Vec<Multiaddr>,
     tor_client: tor::Client,
     seed: &Seed,
-) -> Result<AuthenticatedClient> {
+) -> Result<(AuthenticatedClient, Vec<String>)> {
     let mut ac = tor_client.into_authenticated_client().await?;
 
     let hidden_services_details = networks
@@ -378,10 +384,14 @@ async fn register_tor_services(
         .get_onion_address()
         .get_address_without_dot_onion();
 
-    hidden_services_details.iter().for_each(|(port, _)| {
-        let onion_address = format!("/onion3/{}:{}", onion_address, port);
-        tracing::info!(%onion_address, "Successfully created hidden service");
-    });
+    let onion_addresses: Vec<String> = hidden_services_details
+        .iter()
+        .map(|(port, _)| {
+            let onion_address = format!("/onion3/{}:{}", onion_address, port);
+            tracing::info!(%onion_address, "Successfully created hidden service");
+            onion_address
+        })
+        .collect();
 
-    Ok(ac)
+    Ok((ac, onion_addresses))
 }
