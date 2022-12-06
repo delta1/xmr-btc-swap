@@ -55,6 +55,7 @@ COPY --from=builder /home/asb /home/asb
 
 RUN mkdir -p /home/asb/data
 RUN chown -R asb:asb /home/asb
+RUN usermod -aG debian-tor asb
 
 USER asb:asb
 
