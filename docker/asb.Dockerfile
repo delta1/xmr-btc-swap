@@ -4,7 +4,7 @@
 FROM rust:1.62-slim-bullseye AS builder
 
 RUN update-ca-certificates
-RUN apt-get update && apt-get install -y wget autoconf pkg-config make gpg git
+RUN apt-get update && apt-get install -y wget autoconf pkg-config make gpg git tor
 
 ENV USER=asb
 ENV UID=10001
@@ -43,15 +43,15 @@ ENV CARGO_NET_GIT_FETCH_WITH_CLI=true
 RUN cargo fetch --verbose --locked
 RUN cargo build --release --locked --package swap --bin asb
 
-# final container
+# run
 FROM debian:bullseye-slim
 
 COPY --from=builder /etc/passwd /etc/passwd
 COPY --from=builder /etc/group /etc/group
 COPY --from=builder /home/asb /home/asb
 
-RUN mkdir -p /etc/asb /home/asb/data
-RUN chown -R asb:asb /etc/asb /home/asb
+RUN mkdir -p /home/asb/data
+RUN chown -R asb:asb /home/asb
 
 USER asb:asb
 

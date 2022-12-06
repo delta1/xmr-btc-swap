@@ -11,8 +11,8 @@ services:
         "start"
       ]
     user: "asb:asb"
-    # volumes:
-    #   - ./data:/home/asb/data
+    volumes:
+      - ./data:/home/asb/data
     stdin_open: true
     tty: true
     environment:
