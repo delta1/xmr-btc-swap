@@ -2,11 +2,12 @@ use anyhow::Result;
 use data_encoding::BASE32;
 use futures::future::{BoxFuture, FutureExt, Ready};
 use libp2p::core::multiaddr::{Multiaddr, Protocol};
-use libp2p::core::transport::{ListenerId, TransportError};
+use libp2p::core::transport::{self, ListenerId, TransportError};
 use libp2p::core::Transport;
 use libp2p::tcp::tokio::TcpStream;
 use std::borrow::Cow;
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::task::Poll;
 use std::{fmt, io};
 use tokio_socks::tcp::Socks5Stream;
 
@@ -88,15 +89,14 @@ impl Transport for TorDialOnlyTransport {
     }
 
     fn remove_listener(&mut self, _id: ListenerId) -> bool {
-        todo!("remove_listener...")
+        true
     }
 
     fn poll(
         self: std::pin::Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
-    ) -> std::task::Poll<libp2p::core::transport::TransportEvent<Self::ListenerUpgrade, Self::Error>>
-    {
-        todo!("poll...")
+    ) -> Poll<transport::TransportEvent<Self::ListenerUpgrade, Self::Error>> {
+        Poll::Pending
     }
 }
 
