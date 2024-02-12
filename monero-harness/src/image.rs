@@ -38,11 +38,8 @@ impl Image for Monerod {
     }
 }
 
-#[derive(Debug)]
-#[allow(dead_code)]
-pub struct MoneroWalletRpc {
-    args: MoneroWalletRpcArgs,
-}
+#[derive(Clone, Copy, Debug)]
+pub struct MoneroWalletRpc;
 
 impl Image for MoneroWalletRpc {
     type Args = MoneroWalletRpcArgs;
@@ -62,14 +59,6 @@ impl Image for MoneroWalletRpc {
     fn entrypoint(&self) -> Option<String> {
         Some("".to_owned()) // an empty entrypoint disables the entrypoint
                             // script and gives us full control
-    }
-}
-
-impl MoneroWalletRpc {
-    pub fn new(name: &str, daemon_address: String) -> (Self, MoneroWalletRpcArgs) {
-        dbg!(name);
-        let args = MoneroWalletRpcArgs::new(name, daemon_address);
-        (Self { args: args.clone() }, args)
     }
 }
 
@@ -170,16 +159,13 @@ pub struct MoneroWalletRpcArgs {
 
 impl MoneroWalletRpcArgs {
     pub fn new(wallet_name: &str, daemon_address: String) -> Self {
-        dbg!("new");
-        let temp = Self {
+        Self {
             disable_rpc_login: true,
             confirm_external_bind: true,
             wallet_dir: wallet_name.into(),
             rpc_bind_ip: "0.0.0.0".into(),
             daemon_address,
-        };
-
-        dbg!(temp)
+        }
     }
 }
 

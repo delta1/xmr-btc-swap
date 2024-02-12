@@ -9,7 +9,6 @@ pub const DATADIR: &str = "/home/bdk";
 
 #[derive(Debug)]
 pub struct Bitcoind {
-    args: BitcoindArgs,
     entrypoint: Option<String>,
     volumes: BTreeMap<String, String>,
 }
@@ -40,7 +39,6 @@ impl Image for Bitcoind {
 impl Default for Bitcoind {
     fn default() -> Self {
         Bitcoind {
-            args: BitcoindArgs::default(),
             entrypoint: Some("/usr/bin/bitcoind".into()),
             volumes: BTreeMap::default(),
         }

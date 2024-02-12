@@ -3,7 +3,7 @@ mod electrs;
 
 use anyhow::{bail, Context, Result};
 use async_trait::async_trait;
-use bitcoin_harness::{bitcoind_rpc, BitcoindRpcApi, Client};
+use bitcoin_harness::{BitcoindRpcApi, Client};
 use futures::Future;
 use get_port::get_port;
 use libp2p::core::Multiaddr;

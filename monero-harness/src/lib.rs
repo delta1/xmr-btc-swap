@@ -266,9 +266,8 @@ impl<'c> MoneroWalletRpc {
         prefix: String,
     ) -> Result<(Self, Container<'c, image::MoneroWalletRpc>)> {
         let daemon_address = format!("{}:{}", monerod.name, RPC_PORT);
-        dbg!(&daemon_address);
-        let (image, args) = image::MoneroWalletRpc::new(name, daemon_address);
-        let image = RunnableImage::from((image, args))
+        let args = image::MoneroWalletRpcArgs::new(name, daemon_address);
+        let image = RunnableImage::from((image::MoneroWalletRpc, args))
             .with_container_name(format!("{}{}", prefix, name))
             .with_network(monerod.network.clone());
 
