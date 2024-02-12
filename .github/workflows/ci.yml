@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - "master" # Always build head of master for the badge in the README
+      - "testcontainers" # remove
 
 jobs:
   static_analysis:
