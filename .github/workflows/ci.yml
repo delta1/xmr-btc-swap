@@ -83,10 +83,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v4.1.1
 
-      - uses: Swatinem/rust-cache@v2.7.3
+      # - uses: Swatinem/rust-cache@v2.7.3
 
-      - name: Build swap and asb
-        run: cargo build --bin swap --bin asb
+      # - name: Build swap and asb
+      #   run: cargo build --bin swap --bin asb
 
       - name: Run backwards compatibility tests
         run: ./swap/tests/compat.sh
